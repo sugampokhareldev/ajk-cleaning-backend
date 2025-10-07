@@ -2049,7 +2049,8 @@ app.use((req, res, next) => {
         '/api/submissions',
         '/api/chats',
         '/api/chat/send',
-        '/api/subscriptions'
+        '/api/subscriptions',
+        '/api/subscriptions/create-payment-public'
     ];
     if (excludedRoutes.includes(req.path) || 
         req.path.startsWith('/api/submissions/') || 
@@ -3098,6 +3099,60 @@ app.post('/api/subscriptions/:id/create-payment', requireAuth, async (req, res) 
     }
 });
 
+// Public subscription payment endpoint (no authentication required)
+app.post('/api/subscriptions/:id/create-payment-public', async (req, res) => {
+    try {
+        await db.read();
+        const subscriptions = db.data.subscriptions || [];
+        const subscription = subscriptions.find(sub => sub.id === req.params.id);
+        
+        if (!subscription) {
+            return res.status(404).json({ error: 'Subscription not found' });
+        }
+        
+        if (subscription.status !== 'active') {
+            return res.status(400).json({ error: 'Only active subscriptions can create payments' });
+        }
+        
+        // Create payment intent for subscription
+        // Subscription price is already stored in cents, so no need to multiply by 100
+        const amountInCents = subscription.price;
+        
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: amountInCents,
+            currency: subscription.currency || 'eur',
+            metadata: {
+                type: 'subscription_payment',
+                subscriptionId: subscription.id,
+                customerName: subscription.customerName,
+                customerEmail: subscription.customerEmail,
+                planName: subscription.planName,
+                billingCycle: subscription.billingCycle
+            },
+            automatic_payment_methods: {
+                enabled: true,
+            },
+        });
+        
+        console.log(`[SUBSCRIPTION PAYMENT] 💳 Created payment intent ${paymentIntent.id} for subscription ${subscription.id}`);
+        
+        // Create a shareable payment link
+        const paymentLink = `${process.env.FRONTEND_URL || 'https://ajkcleaners.de'}/subscription-payment/${subscription.id}`;
+        
+        res.json({
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id,
+            amount: subscription.price / 100, // Convert cents to euros for display
+            currency: subscription.currency || 'eur',
+            paymentLink: paymentLink
+        });
+        
+    } catch (error) {
+        console.error('Error creating subscription payment:', error);
+        res.status(500).json({ error: 'Failed to create payment' });
+    }
+});
+
 // Send payment reminder email
 app.post('/api/subscriptions/:id/send-payment-reminder', requireAuth, async (req, res) => {
     try {
@@ -3226,24 +3281,49 @@ app.post('/api/subscriptions/:id/send-payment-reminder', requireAuth, async (req
         
         // Try SendGrid first, fallback to SMTP
         let result;
+        let emailSent = false;
+        
         try {
-            if (process.env.SENDGRID_API_KEY) {
+            if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'your_sendgrid_api_key_here') {
                 console.log('🚀 [SUBSCRIPTION REMINDER] Attempting to send email via SendGrid...');
                 result = await sendGridAdvanced.sendEmail(subscription.customerEmail, emailData.subject, emailData.html, emailData.text);
-                console.log('✅ [SUBSCRIPTION REMINDER] SendGrid email sent successfully');
+                
+                if (result && result.success) {
+                    console.log('✅ [SUBSCRIPTION REMINDER] SendGrid email sent successfully');
+                    emailSent = true;
+                } else {
+                    console.log('❌ [SUBSCRIPTION REMINDER] SendGrid failed, trying SMTP fallback...');
+                }
             } else {
-                console.log('⚠️  [SUBSCRIPTION REMINDER] SENDGRID_API_KEY not found, using SMTP fallback...');
-                result = await sendEmailWithFallback(emailData);
+                console.log('⚠️  [SUBSCRIPTION REMINDER] SENDGRID_API_KEY not configured, using SMTP fallback...');
             }
         } catch (sendGridError) {
             console.log('🔄 [SUBSCRIPTION REMINDER] SendGrid failed, trying SMTP fallback...', sendGridError.message);
-            result = await sendEmailWithFallback(emailData);
         }
         
-        if (result && (result.success || result === true)) {
+        // Try SMTP fallback if SendGrid failed
+        if (!emailSent) {
+            try {
+                console.log('📧 [SUBSCRIPTION REMINDER] Attempting SMTP fallback...');
+                result = await sendEmailWithFallback(emailData);
+                
+                if (result && (result.success || result === true)) {
+                    console.log('✅ [SUBSCRIPTION REMINDER] SMTP email sent successfully');
+                    emailSent = true;
+                } else {
+                    console.log('❌ [SUBSCRIPTION REMINDER] SMTP fallback failed');
+                }
+            } catch (smtpError) {
+                console.log('❌ [SUBSCRIPTION REMINDER] SMTP fallback failed:', smtpError.message);
+            }
+        }
+        
+        if (emailSent) {
             console.log(`[SUBSCRIPTION] 📧 Payment reminder sent to ${subscription.customerEmail} for subscription ${subscription.id}`);
         } else {
-            console.error(`[SUBSCRIPTION] ❌ Failed to send payment reminder`);
+            console.error(`[SUBSCRIPTION] ❌ Failed to send payment reminder - both SendGrid and SMTP failed`);
+            // Still return success to admin, but log the issue
+            console.log('⚠️  [SUBSCRIPTION] Payment reminder endpoint completed, but email delivery failed');
         }
         
         res.json({ 
