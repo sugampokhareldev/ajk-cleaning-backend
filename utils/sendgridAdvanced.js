@@ -32,7 +32,16 @@ class SendGridAdvanced {
                 },
                 subject: subject,
                 html: htmlContent,
-                text: textContent || this.stripHtml(htmlContent)
+                text: textContent || this.stripHtml(htmlContent),
+                // DISABLE CLICK TRACKING to prevent URL modification
+                trackingSettings: {
+                    clickTracking: {
+                        enable: false
+                    },
+                    openTracking: {
+                        enable: false
+                    }
+                }
             };
 
             const response = await sgMail.send(msg);
@@ -70,7 +79,20 @@ class SendGridAdvanced {
                 to: to,
                 subject: subject,
                 html: htmlContent,
-                text: textContent || this.stripHtml(htmlContent)
+                text: textContent || this.stripHtml(htmlContent),
+                // DISABLE CLICK TRACKING for SMTP as well
+                headers: {
+                    'X-SMTPAPI': JSON.stringify({
+                        tracking_settings: {
+                            click_tracking: {
+                                enable: false
+                            },
+                            open_tracking: {
+                                enable: false
+                            }
+                        }
+                    })
+                }
             };
 
             const result = await transporter.sendMail(mailOptions);
