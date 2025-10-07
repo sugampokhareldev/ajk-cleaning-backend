@@ -8481,6 +8481,14 @@
       margin: 10px;
     }
     
+    #subscription-creation-modal .modal-footer {
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+    }
+    
     #penalty-config-modal .modal-content {
       max-width: 95vw !important;
       margin: 10px;
@@ -8567,7 +8575,7 @@
 
   <!-- Subscription Creation Modal -->
   <div id="subscription-creation-modal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: min(95vw, 1000px); background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); width: 100%; max-height: 95vh; display: flex; flex-direction: column; overflow: hidden;">
+    <div class="modal-content" style="max-width: min(95vw, 1000px); background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
       <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0;">
         <div>
           <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">
@@ -8581,7 +8589,7 @@
         </button>
       </div>
       
-      <div class="modal-body" style="padding: 24px; overflow-y: auto; flex: 1;">
+      <div class="modal-body" style="padding: 24px; overflow-y: auto; flex: 1; min-height: 0;">
         <form id="subscription-creation-form">
           <!-- Customer Information Section -->
           <div class="form-section" style="margin-bottom: 32px;">
