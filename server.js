@@ -7515,6 +7515,12 @@ app.post('/api/test/subscription-payment/:subscriptionId/:paymentIntentId', asyn
     }
 });
 
+// Serve CSS files with proper MIME type
+app.get('/dist/output.css', (req, res) => {
+    res.setHeader('Content-Type', 'text/css');
+    res.sendFile(path.join(__dirname, 'dist', 'output.css'));
+});
+
 app.use(express.static(path.join(__dirname), {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.css')) res.setHeader('Content-Type', 'text/css');
