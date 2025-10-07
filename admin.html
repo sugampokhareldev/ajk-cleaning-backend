@@ -6819,8 +6819,201 @@
   document.body.appendChild(modal);
   }
   async editSubscription(subscriptionId) {
-  // Placeholder for edit subscription functionality
-  this.showNotification('Edit subscription functionality coming soon', 'info');
+    try {
+      // Get subscription details
+      const response = await this.fetchWithCSRF(`/api/subscriptions/${subscriptionId}`);
+      if (!response.ok) {
+        this.showNotification('Failed to load subscription details', 'error');
+        return;
+      }
+      
+      const subscription = await response.json();
+      
+      // Open edit modal with subscription data
+      this.openEditSubscriptionModal(subscription);
+      
+    } catch (error) {
+      console.error('Error loading subscription details:', error);
+      this.showNotification('Error loading subscription details', 'error');
+    }
+  }
+  
+  openEditSubscriptionModal(subscription) {
+    // Create edit modal if it doesn't exist
+    let modal = document.getElementById('edit-subscription-modal');
+    if (!modal) {
+      modal = this.createEditSubscriptionModal();
+      document.body.appendChild(modal);
+    }
+    
+    // Pre-fill form with subscription data
+    document.getElementById('edit-customer-name').value = subscription.customerName || '';
+    document.getElementById('edit-customer-email').value = subscription.customerEmail || '';
+    document.getElementById('edit-customer-phone').value = subscription.customerPhone || '';
+    document.getElementById('edit-customer-address').value = subscription.address || '';
+    document.getElementById('edit-plan-name').value = subscription.planName || '';
+    document.getElementById('edit-price').value = (subscription.price / 100).toFixed(2) || '';
+    document.getElementById('edit-billing-cycle').value = subscription.billingCycle || '';
+    document.getElementById('edit-next-billing').value = subscription.nextBillingDate ? new Date(subscription.nextBillingDate).toISOString().split('T')[0] : '';
+    document.getElementById('edit-status').value = subscription.status || '';
+    
+    // Store subscription ID for update
+    modal.dataset.subscriptionId = subscription.id;
+    
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  
+  createEditSubscriptionModal() {
+    const modal = document.createElement('div');
+    modal.id = 'edit-subscription-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    `;
+    
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+          <h2 style="margin: 0; color: #2d3748; font-size: 24px;">Edit Subscription</h2>
+          <button onclick="this.closest('#edit-subscription-modal').style.display='none'; document.body.style.overflow='auto';" 
+                  style="background: none; border: none; font-size: 24px; cursor: pointer; color: #718096;">&times;</button>
+        </div>
+        
+        <form id="edit-subscription-form" style="display: grid; gap: 20px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Customer Name</label>
+              <input type="text" id="edit-customer-name" required 
+                     style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Customer Email</label>
+              <input type="email" id="edit-customer-email" required 
+                     style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Customer Phone</label>
+              <input type="tel" id="edit-customer-phone" 
+                     style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Status</label>
+              <select id="edit-status" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Address</label>
+            <textarea id="edit-customer-address" rows="2" 
+                      style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; resize: vertical;"></textarea>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Plan Name</label>
+              <input type="text" id="edit-plan-name" required 
+                     style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Price (€)</label>
+              <input type="number" id="edit-price" step="0.01" min="0" required 
+                     style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Billing Cycle</label>
+              <select id="edit-billing-cycle" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                <option value="weekly">Weekly</option>
+                <option value="bi-weekly">Bi-weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">Next Billing Date</label>
+            <input type="date" id="edit-next-billing" 
+                   style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+          </div>
+          
+          <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px;">
+            <button type="button" onclick="this.closest('#edit-subscription-modal').style.display='none'; document.body.style.overflow='auto';" 
+                    style="padding: 10px 20px; border: 1px solid #e2e8f0; background: white; color: #4a5568; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              Cancel
+            </button>
+            <button type="submit" 
+                    style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              Update Subscription
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    // Add form submission handler
+    modal.querySelector('#edit-subscription-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.updateSubscription();
+    });
+    
+    return modal;
+  }
+  
+  async updateSubscription() {
+    const modal = document.getElementById('edit-subscription-modal');
+    const subscriptionId = modal.dataset.subscriptionId;
+    
+    const formData = {
+      customerName: document.getElementById('edit-customer-name').value,
+      customerEmail: document.getElementById('edit-customer-email').value,
+      customerPhone: document.getElementById('edit-customer-phone').value,
+      address: document.getElementById('edit-customer-address').value,
+      planName: document.getElementById('edit-plan-name').value,
+      price: Math.round(parseFloat(document.getElementById('edit-price').value) * 100), // Convert to cents
+      billingCycle: document.getElementById('edit-billing-cycle').value,
+      nextBillingDate: document.getElementById('edit-next-billing').value,
+      status: document.getElementById('edit-status').value
+    };
+    
+    try {
+      const response = await this.fetchWithCSRF(`/api/subscriptions/${subscriptionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        this.showNotification('Subscription updated successfully!', 'success');
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        this.loadSubscriptions(); // Refresh the list
+      } else {
+        const error = await response.json();
+        this.showNotification(error.error || 'Failed to update subscription', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      this.showNotification('Failed to update subscription', 'error');
+    }
   }
   async createSubscriptionFromBooking(bookingId) {
   if (!confirm('Create a subscription for this commercial booking? This will set up recurring billing for the customer.')) return;

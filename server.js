@@ -3345,6 +3345,50 @@ app.post('/api/subscriptions/:id/send-payment-reminder', requireAuth, async (req
     }
 });
 
+// Edit subscription details
+app.put('/api/subscriptions/:id', requireAuth, async (req, res) => {
+    try {
+        await db.read();
+        const subscriptions = db.data.subscriptions || [];
+        const subscriptionIndex = subscriptions.findIndex(sub => sub.id === req.params.id);
+        
+        if (subscriptionIndex === -1) {
+            return res.status(404).json({ error: 'Subscription not found' });
+        }
+        
+        const { customerName, customerEmail, customerPhone, address, planName, price, billingCycle, nextBillingDate, status } = req.body;
+        
+        // Update subscription details
+        const updatedSubscription = {
+            ...subscriptions[subscriptionIndex],
+            customerName: customerName || subscriptions[subscriptionIndex].customerName,
+            customerEmail: customerEmail || subscriptions[subscriptionIndex].customerEmail,
+            customerPhone: customerPhone || subscriptions[subscriptionIndex].customerPhone,
+            address: address || subscriptions[subscriptionIndex].address,
+            planName: planName || subscriptions[subscriptionIndex].planName,
+            price: price || subscriptions[subscriptionIndex].price,
+            billingCycle: billingCycle || subscriptions[subscriptionIndex].billingCycle,
+            nextBillingDate: nextBillingDate || subscriptions[subscriptionIndex].nextBillingDate,
+            status: status || subscriptions[subscriptionIndex].status,
+            updatedAt: new Date().toISOString()
+        };
+        
+        subscriptions[subscriptionIndex] = updatedSubscription;
+        db.data.subscriptions = subscriptions;
+        await db.write();
+        
+        console.log(`[SUBSCRIPTION] ✅ Updated subscription ${req.params.id}`);
+        res.json({ 
+            message: 'Subscription updated successfully',
+            subscription: updatedSubscription 
+        });
+        
+    } catch (error) {
+        console.error('Error updating subscription:', error);
+        res.status(500).json({ error: 'Failed to update subscription' });
+    }
+});
+
 // Get all subscriptions with filtering and pagination
 app.get('/api/subscriptions', requireAuth, async (req, res) => {
     try {
@@ -3486,7 +3530,7 @@ app.post('/api/subscriptions/:id/resume', requireAuth, async (req, res) => {
     }
 });
 
-// Cancel subscription
+// Cancel subscription with email notification
 app.post('/api/subscriptions/:id/cancel', requireAuth, async (req, res) => {
     try {
         await db.read();
@@ -3507,7 +3551,163 @@ app.post('/api/subscriptions/:id/cancel', requireAuth, async (req, res) => {
         subscription.updatedAt = new Date().toISOString();
         
         await db.write();
-        res.json({ success: true, subscription });
+        
+        // Send cancellation email to customer
+        try {
+            const cancellationEmailData = {
+                to: subscription.customerEmail,
+                subject: `Subscription Cancelled - ${subscription.planName} | AJK Cleaning Services`,
+                html: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Subscription Cancelled</title>
+                    </head>
+                    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f8f9fa;">
+                        <div style="max-width: 600px; margin: 0 auto; background: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                            <!-- Header -->
+                            <div style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); padding: 30px; text-align: center;">
+                                <h1 style="color: white; margin: 0; font-size: 28px;">Subscription Cancelled</h1>
+                                <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">AJK Cleaning Services</p>
+                            </div>
+                            
+                            <!-- Content -->
+                            <div style="padding: 30px;">
+                                <p style="font-size: 18px; color: #2c3e50; margin-bottom: 20px;">Dear ${subscription.customerName},</p>
+                                <p style="color: #4a5568; line-height: 1.6; margin-bottom: 25px;">
+                                    We're writing to inform you that your subscription has been cancelled as requested. 
+                                    We're sorry to see you go and hope you'll consider our services again in the future.
+                                </p>
+                                
+                                <!-- Subscription Details -->
+                                <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin: 25px 0; border-left: 4px solid #e53e3e;">
+                                    <h3 style="color: #2c3e50; margin-top: 0;">Cancelled Subscription Details</h3>
+                                    <div style="display: grid; gap: 10px;">
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="font-weight: bold; color: #4a5568;">Plan:</span>
+                                            <span style="color: #2c3e50;">${subscription.planName}</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="font-weight: bold; color: #4a5568;">Amount:</span>
+                                            <span style="color: #2c3e50;">€${(subscription.price / 100).toFixed(2)}</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="font-weight: bold; color: #4a5568;">Billing Cycle:</span>
+                                            <span style="color: #2c3e50; text-transform: capitalize;">${subscription.billingCycle}</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="font-weight: bold; color: #4a5568;">Cancelled On:</span>
+                                            <span style="color: #2c3e50;">${new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Important Information -->
+                                <div style="background: #fff5f5; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f56565;">
+                                    <h4 style="color: #2c3e50; margin-top: 0;">Important Information</h4>
+                                    <ul style="color: #4a5568; margin: 0; padding-left: 20px;">
+                                        <li>Your subscription has been immediately cancelled</li>
+                                        <li>No further charges will be made to your account</li>
+                                        <li>You will not receive any future service appointments</li>
+                                        <li>If you have any pending payments, they remain due</li>
+                                    </ul>
+                                </div>
+                                
+                                <!-- Re-subscribe Option -->
+                                <div style="background: #e6fffa; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #38b2ac;">
+                                    <h4 style="color: #2c3e50; margin-top: 0;">Want to Re-subscribe?</h4>
+                                    <p style="color: #4a5568; margin: 0 0 15px 0;">
+                                        If you change your mind, you can easily re-subscribe to our services anytime.
+                                    </p>
+                                    <div style="text-align: center; margin: 20px 0;">
+                                        <a href="https://ajkcleaners.de" style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+                                            Visit Our Website
+                                        </a>
+                                    </div>
+                                </div>
+                                
+                                <!-- Contact Information -->
+                                <div style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 30px;">
+                                    <h4 style="color: #2c3e50; font-size: 16px; margin: 0 0 15px 0; font-weight: 600;">📞 Need Help?</h4>
+                                    <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 0 0 10px 0;">
+                                        If you have any questions about this cancellation or need assistance, please contact us:
+                                    </p>
+                                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                        <div style="flex: 1; min-width: 150px;">
+                                            <p style="margin: 0; color: #718096; font-size: 12px; font-weight: 500;">EMAIL</p>
+                                            <p style="margin: 2px 0 0 0; color: #2d3748; font-size: 14px; font-weight: 600;">info@ajkcleaners.de</p>
+                                        </div>
+                                        <div style="flex: 1; min-width: 150px;">
+                                            <p style="margin: 0; color: #718096; font-size: 12px; font-weight: 500;">PHONE</p>
+                                            <p style="margin: 2px 0 0 0; color: #2d3748; font-size: 14px; font-weight: 600;">+49 123 456 7890</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Footer -->
+                            <div style="background: #f7fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                <p style="color: #718096; font-size: 14px; margin: 0 0 10px 0;">
+                                    Thank you for being a valued customer of <strong>AJK Cleaning Services</strong>
+                                </p>
+                                <p style="color: #a0aec0; font-size: 12px; margin: 0;">
+                                    This is an automated message. Please do not reply to this email.
+                                </p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `
+            };
+            
+            // Send cancellation email with enhanced logic
+            let emailSent = false;
+            try {
+                if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'your_sendgrid_api_key_here') {
+                    console.log('📧 [CANCELLATION] Sending email via SendGrid...');
+                    const result = await sendGridAdvanced.sendEmail(subscription.customerEmail, cancellationEmailData.subject, cancellationEmailData.html);
+                    if (result && result.success) {
+                        console.log('✅ [CANCELLATION] SendGrid email sent successfully');
+                        emailSent = true;
+                    }
+                }
+            } catch (sendGridError) {
+                console.log('🔄 [CANCELLATION] SendGrid failed, trying SMTP fallback...', sendGridError.message);
+            }
+            
+            if (!emailSent) {
+                try {
+                    console.log('📧 [CANCELLATION] Attempting SMTP fallback...');
+                    const result = await sendEmailWithFallback(cancellationEmailData);
+                    if (result && (result.success || result === true)) {
+                        console.log('✅ [CANCELLATION] SMTP email sent successfully');
+                        emailSent = true;
+                    }
+                } catch (smtpError) {
+                    console.log('❌ [CANCELLATION] SMTP fallback failed:', smtpError.message);
+                }
+            }
+            
+            if (emailSent) {
+                console.log(`[SUBSCRIPTION] 📧 Cancellation email sent to ${subscription.customerEmail} for subscription ${subscription.id}`);
+            } else {
+                console.log('⚠️  [SUBSCRIPTION] Subscription cancelled but email delivery failed');
+            }
+            
+        } catch (emailError) {
+            console.error('Error sending cancellation email:', emailError);
+            // Don't fail the cancellation if email fails
+        }
+        
+        console.log(`[SUBSCRIPTION] ✅ Cancelled subscription ${req.params.id}`);
+        res.json({ 
+            success: true, 
+            subscription,
+            emailSent: emailSent
+        });
+        
     } catch (error) {
         console.error('Error cancelling subscription:', error);
         res.status(500).json({ error: 'Failed to cancel subscription' });
