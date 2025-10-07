@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Subscription Payment - AJK Cleaning Services</title>
+    <link rel="stylesheet" href="/dist/output.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .payment-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+        .payment-header {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .payment-body {
+            padding: 40px;
+        }
+        .subscription-info {
+            background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 32px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        .subscription-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .detail-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #3b82f6;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .detail-card.amount {
+            border-left-color: #10b981;
+        }
+        .detail-card.frequency {
+            border-left-color: #f59e0b;
+        }
+        .detail-card.status {
+            border-left-color: #8b5cf6;
+        }
+        .detail-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .detail-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0;
+        }
+        .detail-value.amount {
+            font-size: 24px;
+            color: #059669;
+        }
+        .payment-form {
+            margin-bottom: 32px;
+        }
+        .payment-element {
+            margin-bottom: 24px;
+        }
+        .submit-button {
+            width: 100%;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .success-message {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            color: #166534;
+        }
+        .success-message p {
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+        .payment-id {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #f3f4f6;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            margin: 8px 0;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* Mobile responsive improvements */
+        @media (max-width: 768px) {
+            .success-message {
+                padding: 20px;
+                margin: 10px;
+            }
+            .success-message h3 {
+                font-size: 20px !important;
+            }
+            .success-message p {
+                font-size: 14px !important;
+                line-height: 1.5 !important;
+            }
+            .payment-id {
+                font-size: 10px;
+                padding: 6px 8px;
+                margin: 6px 0;
+            }
+        }
+        .error-message {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 12px;
+            color: #dc2626;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="payment-container">
+        <div class="payment-header">
+            <h1><i class="fas fa-credit-card"></i> Subscription Payment</h1>
+            <p>Complete your subscription payment securely</p>
+        </div>
+        
+        <div class="payment-body">
+            <div id="error-message" class="error-message"></div>
+            
+            <div id="subscription-info" class="subscription-info">
+                <h3 style="color: #1f2937; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; display: flex; align-items: center;">
+                    <i class="fas fa-sync-alt" style="margin-right: 8px; color: #3b82f6;"></i>
+                    Subscription Details
+                </h3>
+                <div id="subscription-details">
+                    <div class="subscription-details">
+                        <div class="detail-card">
+                            <div class="detail-label">Plan</div>
+                            <p class="detail-value" id="plan-name">Loading...</p>
+                        </div>
+                        <div class="detail-card amount">
+                            <div class="detail-label">Amount</div>
+                            <p class="detail-value amount" id="subscription-amount">Loading...</p>
+                        </div>
+                        <div class="detail-card frequency">
+                            <div class="detail-label">Frequency</div>
+                            <p class="detail-value" id="billing-cycle">Loading...</p>
+                        </div>
+                        <div class="detail-card status">
+                            <div class="detail-label">Status</div>
+                            <p class="detail-value" id="subscription-status">Loading...</p>
+                        </div>
+                    </div>
+                    <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 16px; margin-top: 20px;">
+                        <p style="margin: 0; color: #0369a1; font-size: 14px; display: flex; align-items: center;">
+                            <i class="fas fa-clock" style="margin-right: 8px;"></i>
+                            <span id="next-billing-info">Next billing date will be calculated after payment</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <form id="payment-form" class="payment-form">
+                <h3 style="color: #1f2937; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; display: flex; align-items: center;">
+                    <i class="fas fa-lock" style="margin-right: 8px; color: #10b981;"></i>
+                    Payment Information
+                </h3>
+                
+                <!-- Payment Methods Info -->
+                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                    <h4 style="color: #0369a1; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; display: flex; align-items: center;">
+                        <i class="fas fa-credit-card" style="margin-right: 8px;"></i>
+                        Accepted Payment Methods
+                    </h4>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <span style="background: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; color: #4b5563; border: 1px solid #d1d5db;">💳 Credit Card</span>
+                        <span style="background: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; color: #4b5563; border: 1px solid #d1d5db;">🏦 Debit Card</span>
+                        <span style="background: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; color: #4b5563; border: 1px solid #d1d5db;">📱 Apple Pay</span>
+                        <span style="background: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; color: #4b5563; border: 1px solid #d1d5db;">📱 Google Pay</span>
+                    </div>
+                </div>
+                
+                <div id="payment-element" class="payment-element">
+                    <!-- Stripe Elements will be inserted here -->
+                </div>
+                
+                <!-- Security Info -->
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                    <p style="margin: 0; color: #166534; font-size: 14px; display: flex; align-items: center;">
+                        <i class="fas fa-shield-alt" style="margin-right: 8px;"></i>
+                        Your payment is secured with 256-bit SSL encryption and processed by Stripe
+                    </p>
+                </div>
+                
+                <button type="submit" id="submit-button" class="submit-button">
+                    <i class="fas fa-credit-card"></i> Pay Now
+                </button>
+            </form>
+            
+            <div id="loading" class="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Processing payment...</p>
+            </div>
+            
+            <div id="success-message" class="success-message">
+                <div style="text-align: center; padding: 40px;">
+                    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+                        <i class="fas fa-check" style="font-size: 32px; color: white;"></i>
+                    </div>
+                    <h3 style="color: #1f2937; font-size: 24px; font-weight: 700; margin: 0 0 16px 0;">Payment Successful! 🎉</h3>
+                    <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 24px 0;">
+                        Your subscription payment has been processed successfully. You will receive a confirmation email shortly.
+                    </p>
+                    <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 16px; margin: 24px 0;">
+                        <p style="margin: 0; color: #0369a1; font-size: 14px; font-weight: 600;">
+                            <i class="fas fa-envelope" style="margin-right: 8px;"></i>
+                            Confirmation email sent to your registered email address
+                        </p>
+                    </div>
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px;">
+                        <p style="margin: 0; color: #166534; font-size: 14px;">
+                            <i class="fas fa-calendar-alt" style="margin-right: 8px;"></i>
+                            Your next service will be scheduled according to your subscription plan
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Stripe
+        let stripe;
+        
+        // Fetch Stripe publishable key from server
+        async function initializeStripe() {
+            try {
+                const response = await fetch('/api/stripe-key');
+                const { publishableKey } = await response.json();
+                stripe = Stripe(publishableKey);
+                console.log('✅ Stripe initialized with key:', publishableKey.substring(0, 20) + '...');
+            } catch (error) {
+                console.error('❌ Failed to initialize Stripe:', error);
+                showError('Failed to initialize payment system. Please refresh the page.');
+            }
+        }
+        
+        // Global variables
+        let subscriptionId;
+        let paymentIntentId;
+        let redirectStatus;
+        let isSuccessPage;
+        let elements;
+        let paymentElement;
+        let urlParams;
+        
+        // Load subscription details with enhanced error handling
+        async function loadSubscriptionDetails() {
+            try {
+                console.log('🔍 Loading subscription details for ID:', subscriptionId);
+                
+                // Add timeout for mobile networks
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                
+                const response = await fetch(`/api/subscriptions/${subscriptionId}`, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    throw new Error(`Failed to load subscription details: ${response.status} ${errorText}`);
+                }
+                
+                const subscription = await response.json();
+                console.log('✅ Subscription details loaded:', subscription);
+                
+                // Update subscription details with new structure
+                document.getElementById('plan-name').textContent = subscription.planName;
+                document.getElementById('subscription-amount').textContent = `€${(subscription.price / 100).toFixed(2)}`;
+                document.getElementById('billing-cycle').textContent = subscription.billingCycle.charAt(0).toUpperCase() + subscription.billingCycle.slice(1);
+                document.getElementById('subscription-status').textContent = subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1);
+                
+                // Update next billing info
+                const nextBillingInfo = document.getElementById('next-billing-info');
+                if (subscription.nextBillingDate) {
+                    const nextDate = new Date(subscription.nextBillingDate);
+                    nextBillingInfo.textContent = `Next billing: ${nextDate.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+                } else {
+                    nextBillingInfo.textContent = 'Next billing date will be calculated after payment';
+                }
+                
+                return subscription;
+            } catch (error) {
+                console.error('Error loading subscription:', error);
+                showError('Failed to load subscription details. Please try again.');
+                return null;
+            }
+        }
+        
+        // Create payment intent
+        async function createPaymentIntent() {
+            try {
+                const response = await fetch(`/api/subscriptions/${subscriptionId}/create-payment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create payment intent');
+                }
+                
+                const { clientSecret } = await response.json();
+                return clientSecret;
+            } catch (error) {
+                console.error('Error creating payment intent:', error);
+                showError('Failed to create payment. Please try again.');
+                return null;
+            }
+        }
+        
+        // Initialize payment
+        async function initializePayment() {
+            console.log('🔧 Initializing payment...');
+            const clientSecret = await createPaymentIntent();
+            if (!clientSecret) {
+                console.error('❌ Failed to get client secret');
+                return;
+            }
+            
+            console.log('✅ Client secret received, creating Stripe elements...');
+            elements = stripe.elements({ clientSecret });
+            paymentElement = elements.create('payment');
+            paymentElement.mount('#payment-element');
+            
+            // Handle form submission
+            const form = document.getElementById('payment-form');
+            if (form) {
+                console.log('✅ Form found, adding event listener...');
+                form.addEventListener('submit', handleSubmit);
+            } else {
+                console.error('❌ Payment form not found!');
+            }
+            
+            // Also add click handler to button as fallback
+            const submitButton = document.getElementById('submit-button');
+            if (submitButton) {
+                console.log('✅ Adding click handler to button...');
+                submitButton.addEventListener('click', (e) => {
+                    console.log('🔧 Button clicked!');
+                    e.preventDefault();
+                    handleSubmit(e);
+                });
+            } else {
+                console.error('❌ Submit button not found!');
+            }
+        }
+        
+        // Handle form submission
+        async function handleSubmit(event) {
+            console.log('🔧 Form submitted, handling payment...');
+            event.preventDefault();
+            
+            const submitButton = document.getElementById('submit-button');
+            const loading = document.getElementById('loading');
+            
+            if (!submitButton) {
+                console.error('❌ Submit button not found!');
+                return;
+            }
+            
+            console.log('✅ Disabling button and showing loading...');
+            submitButton.disabled = true;
+            loading.style.display = 'block';
+            
+            try {
+                const { error } = await stripe.confirmPayment({
+                    elements,
+                    confirmParams: {
+                        return_url: `${window.location.origin}/subscription-payment/${subscriptionId}/success`,
+                    },
+                });
+                
+                if (error) {
+                    showError(error.message);
+                    submitButton.disabled = false;
+                    loading.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error processing payment:', error);
+                showError('An error occurred while processing your payment. Please try again.');
+                submitButton.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        // Show error message
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+        
+        // Show success message
+        async function showSuccessMessage() {
+            // Hide payment form and loading
+            const paymentForm = document.getElementById('payment-form');
+            const loading = document.getElementById('loading');
+            const successMessage = document.getElementById('success-message');
+            
+            if (paymentForm) paymentForm.style.display = 'none';
+            if (loading) loading.style.display = 'none';
+            if (successMessage) successMessage.style.display = 'block';
+            
+            // Update success message with payment details
+            const paymentIntentId = urlParams.get('payment_intent');
+            if (paymentIntentId) {
+                const successText = successMessage.querySelector('p:last-child');
+                if (successText) {
+                    successText.innerHTML = `
+                        Your subscription payment has been processed successfully.<br><br>
+                        <strong>Payment ID:</strong><br>
+                        <div class="payment-id">${paymentIntentId}</div>
+                        <br>You will receive a confirmation email shortly.
+                    `;
+                }
+                
+                // Manually trigger payment processing since webhook might not work in test mode
+                await processPaymentManually(paymentIntentId);
+            }
+        }
+        
+        // Manually process payment (for test mode when webhook doesn't work)
+        async function processPaymentManually(paymentIntentId) {
+            try {
+                console.log('🔧 Manually processing payment...');
+                console.log('📝 Using subscription ID:', subscriptionId);
+                console.log('📝 Using payment intent ID:', paymentIntentId);
+                const response = await fetch(`/api/test/subscription-payment/${subscriptionId}/${paymentIntentId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ Payment processed successfully:', result);
+                    
+                    // Reload subscription details to show updated information
+                    console.log('🔄 Reloading subscription details after payment...');
+                    await loadSubscriptionDetails();
+                } else {
+                    console.warn('⚠️ Manual payment processing failed, but payment was successful');
+                }
+            } catch (error) {
+                console.warn('⚠️ Manual payment processing failed:', error);
+            }
+        }
+        
+        // Initialize the page
+        async function init() {
+            // Enhanced subscription ID extraction with better mobile support
+            // Fallback for older browsers that don't support URLSearchParams
+            let urlParams;
+            try {
+                urlParams = new URLSearchParams(window.location.search);
+            } catch (error) {
+                console.warn('⚠️ URLSearchParams not supported, using fallback');
+                // Manual URL parsing fallback
+                const search = window.location.search.substring(1);
+                const params = {};
+                if (search) {
+                    search.split('&').forEach(param => {
+                        const [key, value] = param.split('=');
+                        if (key && value) {
+                            params[decodeURIComponent(key)] = decodeURIComponent(value);
+                        }
+                    });
+                }
+                urlParams = {
+                    get: (key) => params[key] || null
+                };
+            }
+            const pathParts = window.location.pathname.split('/');
+            
+            // Method 1: Find subscription ID in path parts
+            subscriptionId = pathParts.find(part => part.startsWith('sub_'));
+            
+            // Method 2: Regex fallback
+            if (!subscriptionId) {
+                const match = window.location.pathname.match(/sub_[a-zA-Z0-9_]+/);
+                subscriptionId = match ? match[0] : null;
+            }
+            
+            // Method 3: Check URL hash (for mobile compatibility)
+            if (!subscriptionId && window.location.hash) {
+                const hashMatch = window.location.hash.match(/sub_[a-zA-Z0-9_]+/);
+                subscriptionId = hashMatch ? hashMatch[0] : null;
+            }
+            
+            // Method 4: Check query parameters
+            if (!subscriptionId) {
+                subscriptionId = urlParams.get('subscription_id') || urlParams.get('id');
+            }
+            
+            paymentIntentId = urlParams.get('payment_intent');
+            redirectStatus = urlParams.get('redirect_status');
+            
+            // Enhanced debug logging for mobile troubleshooting
+            console.log('🔍 Enhanced URL Debug Info:');
+            console.log('  - User Agent:', navigator.userAgent);
+            console.log('  - Is Mobile:', /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+            console.log('  - Full URL:', window.location.href);
+            console.log('  - Pathname:', window.location.pathname);
+            console.log('  - Hash:', window.location.hash);
+            console.log('  - Path parts:', pathParts);
+            console.log('  - Query params:', Object.fromEntries(urlParams));
+            console.log('  - Extracted subscription ID:', subscriptionId);
+            console.log('  - Payment intent ID:', paymentIntentId);
+            console.log('  - Redirect status:', redirectStatus);
+            
+            // Mobile-specific debugging
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                console.log('📱 Mobile device detected - applying mobile-specific fixes');
+            }
+            
+            // Check if this is a success page
+            isSuccessPage = window.location.pathname.includes('/success') || redirectStatus === 'succeeded';
+            
+            // Enhanced subscription ID validation with helpful error messages
+            if (!subscriptionId) {
+                console.error('❌ Could not extract subscription ID from URL');
+                console.error('❌ URL structure:', {
+                    href: window.location.href,
+                    pathname: window.location.pathname,
+                    search: window.location.search,
+                    hash: window.location.hash
+                });
+                
+                // Show more helpful error message
+                showError('Invalid subscription URL. Please check that the link is complete and try again. If the problem persists, please contact support.');
+                
+                // Hide the payment form
+                const paymentForm = document.getElementById('payment-form');
+                if (paymentForm) {
+                    paymentForm.style.display = 'none';
+                }
+                return;
+            }
+            
+            if (isSuccessPage) {
+                console.log('✅ Success page detected, showing success message...');
+                await showSuccessMessage();
+                return;
+            }
+            
+            // Initialize Stripe first
+            await initializeStripe();
+            
+            const subscription = await loadSubscriptionDetails();
+            if (subscription) {
+                await initializePayment();
+            }
+        }
+        
+        // Start the application
+        init();
+    </script>
+</body>
+</html>
