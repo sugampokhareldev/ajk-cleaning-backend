@@ -6334,6 +6334,9 @@
   <button onclick="event.stopPropagation(); adminPanel.viewSubscription('${subscription.id}')" style="width: 32px; height: 32px; background: #6366f1; border: none; border-radius: 6px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#6366f1'" title="View Details">
   <i class="fas fa-eye" style="font-size: 0.75rem;"></i>
   </button>
+  <button onclick="event.stopPropagation(); adminPanel.editSubscription('${subscription.id}')" style="width: 32px; height: 32px; background: #10b981; border: none; border-radius: 6px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'" title="Edit Subscription">
+  <i class="fas fa-edit" style="font-size: 0.75rem;"></i>
+  </button>
   ${subscription.status === 'active' ? `
   <button onclick="event.stopPropagation(); adminPanel.pauseSubscription('${subscription.id}')" style="width: 32px; height: 32px; background: #f59e0b; border: none; border-radius: 6px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.background='#d97706'" onmouseout="this.style.background='#f59e0b'" title="Pause Subscription">
   <i class="fas fa-pause" style="font-size: 0.75rem;"></i>
