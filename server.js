@@ -3167,11 +3167,13 @@ app.post('/api/subscriptions/:id/send-payment-reminder', requireAuth, async (req
             return res.status(404).json({ error: 'Subscription not found' });
         }
         
-        // Create payment link - URGENT FIX: Force correct domain
+        // Create payment link - BULLETPROOF FIX: Force correct domain
         const paymentLink = `https://ajkcleaners.de/subscription-payment/${subscription.id}`;
-        console.log(`🚨 [URGENT FIX] Payment link: ${paymentLink}`);
-        console.log(`🚨 [URGENT FIX] Subscription ID: ${subscription.id}`);
-        console.log(`🚨 [URGENT FIX] Customer: ${subscription.customerEmail}`);
+        console.log(`🚨 [BULLETPROOF FIX] Payment link: ${paymentLink}`);
+        console.log(`🚨 [BULLETPROOF FIX] Subscription ID: ${subscription.id}`);
+        console.log(`🚨 [BULLETPROOF FIX] Customer: ${subscription.customerEmail}`);
+        console.log(`🚨 [BULLETPROOF FIX] FRONTEND_URL env: ${process.env.FRONTEND_URL || 'NOT SET'}`);
+        console.log(`🚨 [BULLETPROOF FIX] NODE_ENV: ${process.env.NODE_ENV}`);
         
         // Send reminder email with enhanced design
         const emailData = {
