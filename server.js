@@ -1573,7 +1573,7 @@ async function createSubscriptionFromBooking(booking, bookingDetails) {
             stripeCustomerId: null, // Will be set if using Stripe subscriptions
             planId: bookingDetails.package,
             planName: getPlanName(bookingDetails.package),
-            price: bookingDetails.package === 'commercial' ? 0 : booking.amount,
+            price: bookingDetails.package === 'commercial' || bookingDetails.package === 'regular-basic' ? 0 : booking.amount,
             currency: 'eur',
             billingCycle: getServiceFrequency(bookingDetails.package),
             status: 'active',
@@ -1934,8 +1934,8 @@ app.post('/stripe-webhook', express.raw({type: 'application/json'}), async (req,
                 console.info(`[STRIPE] 📊 Total bookings now:`, db.data.bookings.length);
                 
                 // Check if this is a subscription booking and create subscription
-                // Only create subscriptions for regular subscription packages, not commercial
-                if (bookingDetails.bookingType === 'subscription' && bookingDetails.package !== 'commercial') {
+                // Only create subscriptions for regular subscription packages, not commercial or regular-basic
+                if (bookingDetails.bookingType === 'subscription' && bookingDetails.package !== 'commercial' && bookingDetails.package !== 'regular-basic') {
                     try {
                         await createSubscriptionFromBooking(newBooking, bookingDetails);
                         console.log(`[STRIPE] ✅ Created subscription for booking ${newBooking.id}`);
@@ -1943,8 +1943,8 @@ app.post('/stripe-webhook', express.raw({type: 'application/json'}), async (req,
                         console.error(`[STRIPE] ❌ Failed to create subscription for booking ${newBooking.id}:`, subscriptionError.message);
                         // Don't fail the booking if subscription creation fails
                     }
-                } else if (bookingDetails.bookingType === 'subscription' && bookingDetails.package === 'commercial') {
-                    console.log(`[STRIPE] 📝 Commercial subscription booking - subscription will be created after consultation`);
+                } else if (bookingDetails.bookingType === 'subscription' && (bookingDetails.package === 'commercial' || bookingDetails.package === 'regular-basic')) {
+                    console.log(`[STRIPE] 📝 ${bookingDetails.package} subscription booking - subscription will be created after consultation`);
                 }
                 
                 // Send invoice email to customer
@@ -6787,8 +6787,8 @@ app.post('/api/bookings/manual-create', async (req, res) => {
         console.log(`[MANUAL] 📊 Total bookings in database:`, db.data.bookings.length);
         
         // Check if this is a subscription booking and create subscription
-        // Only create subscriptions for regular subscription packages, not commercial
-        if (bookingDetails.bookingType === 'subscription' && bookingDetails.package !== 'commercial') {
+        // Only create subscriptions for regular subscription packages, not commercial or regular-basic
+        if (bookingDetails.bookingType === 'subscription' && bookingDetails.package !== 'commercial' && bookingDetails.package !== 'regular-basic') {
             try {
                 await createSubscriptionFromBooking(newBooking, bookingDetails);
                 console.log(`[MANUAL] ✅ Created subscription for booking ${newBooking.id}`);
@@ -6796,8 +6796,8 @@ app.post('/api/bookings/manual-create', async (req, res) => {
                 console.error(`[MANUAL] ❌ Failed to create subscription for booking ${newBooking.id}:`, subscriptionError.message);
                 // Don't fail the booking if subscription creation fails
             }
-        } else if (bookingDetails.bookingType === 'subscription' && bookingDetails.package === 'commercial') {
-            console.log(`[MANUAL] 📝 Commercial subscription booking - subscription will be created after consultation`);
+        } else if (bookingDetails.bookingType === 'subscription' && (bookingDetails.package === 'commercial' || bookingDetails.package === 'regular-basic')) {
+            console.log(`[MANUAL] 📝 ${bookingDetails.package} subscription booking - subscription will be created after consultation`);
         }
         
         // Send invoice email to customer
