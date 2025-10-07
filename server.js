@@ -3082,8 +3082,9 @@ app.post('/api/subscriptions/:id/create-payment', requireAuth, async (req, res) 
         
         console.log(`[SUBSCRIPTION PAYMENT] 💳 Created payment intent ${paymentIntent.id} for subscription ${subscription.id}`);
         
-        // Create a shareable payment link
+        // Create a shareable payment link - FIXED: Always use correct domain
         const paymentLink = `https://ajkcleaners.de/subscription-payment/${subscription.id}`;
+        console.log(`[PAYMENT LINK] Generated: ${paymentLink}`);
         
         res.json({
             clientSecret: paymentIntent.client_secret,
@@ -3136,8 +3137,9 @@ app.post('/api/subscriptions/:id/create-payment-public', async (req, res) => {
         
         console.log(`[SUBSCRIPTION PAYMENT] 💳 Created payment intent ${paymentIntent.id} for subscription ${subscription.id}`);
         
-        // Create a shareable payment link
+        // Create a shareable payment link - FIXED: Always use correct domain
         const paymentLink = `https://ajkcleaners.de/subscription-payment/${subscription.id}`;
+        console.log(`[PAYMENT LINK] Generated: ${paymentLink}`);
         
         res.json({
             clientSecret: paymentIntent.client_secret,
@@ -3164,8 +3166,9 @@ app.post('/api/subscriptions/:id/send-payment-reminder', requireAuth, async (req
             return res.status(404).json({ error: 'Subscription not found' });
         }
         
-        // Create payment link
+        // Create payment link - FIXED: Always use correct domain
         const paymentLink = `https://ajkcleaners.de/subscription-payment/${subscription.id}`;
+        console.log(`[PAYMENT REMINDER] Generated link: ${paymentLink}`);
         
         // Send reminder email with enhanced design
         const emailData = {
