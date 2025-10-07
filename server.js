@@ -1603,6 +1603,15 @@ async function createSubscriptionFromBooking(booking, bookingDetails) {
         console.log(`[SUBSCRIPTION] ✅ Successfully created subscription ${subscription.id}`);
         console.log(`[SUBSCRIPTION] 📊 Total subscriptions now:`, db.data.subscriptions.length);
         
+        // Send subscription creation confirmation email
+        try {
+            await sendSubscriptionCreationConfirmation(subscription);
+            console.log(`[SUBSCRIPTION] 📧 Subscription creation confirmation email sent to ${subscription.customerEmail}`);
+        } catch (emailError) {
+            console.error(`[SUBSCRIPTION] ❌ Failed to send subscription creation confirmation email:`, emailError.message);
+            // Don't fail subscription creation if email fails
+        }
+        
         return subscription;
     } catch (error) {
         console.error(`[SUBSCRIPTION] ❌ Error creating subscription:`, error);
@@ -1770,6 +1779,214 @@ Thank you for choosing AJK Cleaning Company!
         
     } catch (error) {
         console.error('❌ Failed to send invoice email:', error);
+        throw error;
+    }
+}
+
+// Function to send subscription creation confirmation email
+async function sendSubscriptionCreationConfirmation(subscription) {
+    try {
+        const {
+            customerEmail,
+            customerName,
+            planName,
+            price,
+            billingCycle,
+            nextBillingDate,
+            serviceAddress,
+            specialInstructions,
+            id: subscriptionId
+        } = subscription;
+
+        const amount = price ? (price / 100).toFixed(2) : '0.00';
+        const nextBilling = new Date(nextBillingDate).toLocaleDateString('en-GB', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+
+        const emailData = {
+            to: customerEmail,
+            subject: `🎉 Subscription Created Successfully - ${planName} | AJK Cleaning Services`,
+            text: `Subscription Confirmation - ${planName}
+            
+Dear ${customerName},
+
+Your subscription has been successfully created and is now active!
+
+Subscription Details:
+- Plan: ${planName}
+- Amount: €${amount}
+- Billing Cycle: ${billingCycle}
+- Next Billing Date: ${nextBilling}
+- Service Address: ${serviceAddress}
+- Subscription ID: ${subscriptionId}
+
+${specialInstructions ? `Special Instructions: ${specialInstructions}` : ''}
+
+Your subscription is now active and you will receive regular cleaning services according to your plan.
+
+Thank you for choosing AJK Cleaning Services!
+
+Best regards,
+AJK Cleaning Team`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Subscription Created - AJK Cleaning</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4; }
+                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; }
+                        .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+                        .header p { margin: 10px 0 0 0; font-size: 16px; opacity: 0.9; }
+                        .content { padding: 30px; }
+                        .success-badge { background: #d1fae5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 20px; margin-bottom: 25px; text-align: center; }
+                        .success-badge h2 { color: #065f46; margin: 0 0 10px 0; font-size: 20px; }
+                        .subscription-details { background: #f8f9fa; border-radius: 8px; padding: 25px; margin: 20px 0; }
+                        .detail-row { display: flex; justify-content: space-between; margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e9ecef; }
+                        .detail-row:last-child { border-bottom: none; }
+                        .detail-label { font-weight: bold; color: #495057; }
+                        .detail-value { color: #212529; }
+                        .subscription-id { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0; border-radius: 4px; }
+                        .subscription-id h3 { color: #1976d2; margin: 0 0 10px 0; }
+                        .subscription-id code { background: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-family: monospace; }
+                        .next-billing { background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin: 20px 0; border-radius: 4px; }
+                        .next-billing h3 { color: #f57c00; margin: 0 0 10px 0; }
+                        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; border-top: 1px solid #e9ecef; }
+                        .contact-info { background: #e8f5e8; border-radius: 8px; padding: 20px; margin: 20px 0; }
+                        .contact-info h3 { color: #2e7d32; margin: 0 0 15px 0; }
+                        .contact-info p { margin: 5px 0; color: #388e3c; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🎉 Subscription Created!</h1>
+                            <p>Your cleaning subscription is now active</p>
+                        </div>
+                        
+                        <div class="content">
+                            <div class="success-badge">
+                                <h2>✅ Subscription Successfully Created</h2>
+                                <p>Dear ${customerName}, your subscription is now active and ready to use!</p>
+                            </div>
+                            
+                            <div class="subscription-details">
+                                <h3 style="color: #2d3748; margin: 0 0 20px 0; font-size: 18px;">📋 Subscription Details</h3>
+                                <div class="detail-row">
+                                    <span class="detail-label">Plan Name:</span>
+                                    <span class="detail-value">${planName}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Amount:</span>
+                                    <span class="detail-value">€${amount}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Billing Cycle:</span>
+                                    <span class="detail-value">${billingCycle}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Service Address:</span>
+                                    <span class="detail-value">${serviceAddress}</span>
+                                </div>
+                                ${specialInstructions ? `
+                                <div class="detail-row">
+                                    <span class="detail-label">Special Instructions:</span>
+                                    <span class="detail-value">${specialInstructions}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div class="subscription-id">
+                                <h3>🆔 Subscription ID</h3>
+                                <code>${subscriptionId}</code>
+                                <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Keep this ID for your records</p>
+                            </div>
+                            
+                            <div class="next-billing">
+                                <h3>📅 Next Billing Date</h3>
+                                <p style="margin: 0; font-size: 16px; font-weight: 600;">${nextBilling}</p>
+                                <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Your next payment will be processed on this date</p>
+                            </div>
+                            
+                            <div class="contact-info">
+                                <h3>📞 Need Help?</h3>
+                                <p><strong>Email:</strong> info@ajkcleaning.com</p>
+                                <p><strong>Phone:</strong> +49 123 456 7890</p>
+                                <p><strong>Hours:</strong> Monday - Friday, 8:00 AM - 6:00 PM</p>
+                            </div>
+                            
+                            <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">
+                                Thank you for choosing <strong>AJK Cleaning Services</strong>! Your subscription is now active and you will receive regular cleaning services according to your plan.
+                            </p>
+                        </div>
+                        
+                        <div class="footer">
+                            <p style="margin: 0 0 10px 0;">
+                                <strong>AJK Cleaning Services</strong> - Professional Cleaning Solutions
+                            </p>
+                            <p style="margin: 0; font-size: 12px;">
+                                This is an automated message. Please do not reply to this email.
+                            </p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        // Try SendGrid first, fallback to SMTP
+        let result;
+        let emailSent = false;
+        
+        try {
+            if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'your_sendgrid_api_key_here') {
+                console.log('🚀 [SUBSCRIPTION CREATION] Attempting to send email via SendGrid...');
+                result = await sendGridAdvanced.sendEmail(customerEmail, emailData.subject, emailData.html, emailData.text);
+                
+                if (result && result.success) {
+                    console.log('✅ [SUBSCRIPTION CREATION] SendGrid email sent successfully');
+                    emailSent = true;
+                } else {
+                    console.log('❌ [SUBSCRIPTION CREATION] SendGrid failed, trying SMTP fallback...');
+                }
+            } else {
+                console.log('⚠️  [SUBSCRIPTION CREATION] SENDGRID_API_KEY not configured, using SMTP fallback...');
+            }
+        } catch (sendGridError) {
+            console.log('🔄 [SUBSCRIPTION CREATION] SendGrid failed, trying SMTP fallback...', sendGridError.message);
+        }
+        
+        // Try SMTP fallback if SendGrid failed
+        if (!emailSent) {
+            try {
+                console.log('📧 [SUBSCRIPTION CREATION] Attempting SMTP fallback...');
+                result = await sendEmailWithFallback(emailData);
+                
+                if (result && (result.success || result === true)) {
+                    console.log('✅ [SUBSCRIPTION CREATION] SMTP email sent successfully');
+                    emailSent = true;
+                } else {
+                    console.log('❌ [SUBSCRIPTION CREATION] SMTP fallback failed');
+                }
+            } catch (smtpError) {
+                console.log('❌ [SUBSCRIPTION CREATION] SMTP fallback failed:', smtpError.message);
+            }
+        }
+        
+        if (emailSent) {
+            console.log(`✅ Subscription creation confirmation email sent to ${customerEmail} for subscription ${subscriptionId}`);
+        } else {
+            console.error(`❌ Failed to send subscription creation confirmation email to ${customerEmail}`);
+        }
+        
+    } catch (error) {
+        console.error('Error sending subscription creation confirmation:', error);
         throw error;
     }
 }
@@ -3926,6 +4143,15 @@ app.post('/api/subscriptions', requireAuth, async (req, res) => {
             price: subscription.price,
             status: subscription.status
         });
+        
+        // Send subscription creation confirmation email
+        try {
+            await sendSubscriptionCreationConfirmation(subscription);
+            console.log(`[SUBSCRIPTION] 📧 Subscription creation confirmation email sent to ${subscription.customerEmail}`);
+        } catch (emailError) {
+            console.error(`[SUBSCRIPTION] ❌ Failed to send subscription creation confirmation email:`, emailError.message);
+            // Don't fail subscription creation if email fails
+        }
         
         res.status(201).json({ success: true, subscription });
     } catch (error) {
