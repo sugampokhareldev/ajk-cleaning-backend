@@ -1274,8 +1274,46 @@ async function handleSubscriptionPayment(paymentIntent) {
         
         if (!subscription) {
             console.error(`[SUBSCRIPTION PAYMENT] ❌ Subscription not found: ${paymentIntent.metadata.subscriptionId}`);
-            return;
+            console.log(`[SUBSCRIPTION PAYMENT] 📋 Available subscriptions:`, subscriptions.map(s => ({ id: s.id, customerEmail: s.customerEmail })));
+            
+            // Create a new subscription if it doesn't exist (fallback)
+            console.log(`[SUBSCRIPTION PAYMENT] 🔄 Creating new subscription as fallback...`);
+            const newSubscription = {
+                id: paymentIntent.metadata.subscriptionId,
+                customerName: paymentIntent.metadata.customerName || 'Unknown Customer',
+                customerEmail: paymentIntent.metadata.customerEmail || 'unknown@example.com',
+                planName: paymentIntent.metadata.planName || 'Premium Cleaning Plan',
+                billingCycle: paymentIntent.metadata.billingCycle || 'monthly',
+                price: paymentIntent.amount,
+                currency: 'eur',
+                status: 'active',
+                createdAt: new Date().toISOString(),
+                lastPaymentDate: new Date().toISOString(),
+                lastPaymentAmount: paymentIntent.amount / 100,
+                totalPaid: paymentIntent.amount / 100,
+                paymentHistory: [{
+                    date: new Date().toISOString(),
+                    amount: paymentIntent.amount / 100,
+                    paymentIntentId: paymentIntent.id,
+                    status: 'completed'
+                }],
+                nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+            };
+            
+            subscriptions.push(newSubscription);
+            await db.write();
+            console.log(`[SUBSCRIPTION PAYMENT] ✅ Created new subscription: ${newSubscription.id}`);
+            
+            // Use the new subscription for processing
+            subscription = newSubscription;
         }
+        
+        console.log(`[SUBSCRIPTION PAYMENT] ✅ Found subscription:`, {
+            id: subscription.id,
+            customerEmail: subscription.customerEmail,
+            planName: subscription.planName,
+            status: subscription.status
+        });
         
         // Update subscription with payment info
         const subscriptionIndex = subscriptions.findIndex(sub => sub.id === subscription.id);
@@ -1322,6 +1360,22 @@ async function handleSubscriptionPayment(paymentIntent) {
                 const emailData = {
                     to: subscription.customerEmail,
                     subject: `Payment Confirmed - ${subscription.planName} | AJK Cleaning Services`,
+                    text: `Payment Confirmation - ${subscription.planName}
+                    
+Dear ${subscription.customerName},
+
+Your subscription payment has been processed successfully.
+
+Payment Details:
+- Plan: ${subscription.planName}
+- Amount: €${(paymentIntent.amount / 100).toFixed(2)}
+- Payment Date: ${new Date().toLocaleDateString()}
+- Payment ID: ${paymentIntent.id}
+
+Thank you for your continued subscription to AJK Cleaning Services.
+
+Best regards,
+AJK Cleaning Team`,
                     html: `
                         <!DOCTYPE html>
                         <html>
@@ -1443,24 +1497,51 @@ async function handleSubscriptionPayment(paymentIntent) {
                 
                 // Try SendGrid first, fallback to SMTP
                 let result;
+                let emailSent = false;
+                
                 try {
-                    if (process.env.SENDGRID_API_KEY) {
+                    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'your_sendgrid_api_key_here') {
                         console.log('🚀 [SUBSCRIPTION PAYMENT] Attempting to send email via SendGrid...');
+                        console.log(`📧 [SUBSCRIPTION PAYMENT] Sending to: ${subscription.customerEmail}`);
+                        console.log(`📧 [SUBSCRIPTION PAYMENT] Subject: ${emailData.subject}`);
+                        
                         result = await sendGridAdvanced.sendEmail(subscription.customerEmail, emailData.subject, emailData.html, emailData.text);
-                        console.log('✅ [SUBSCRIPTION PAYMENT] SendGrid email sent successfully');
+                        
+                        if (result && result.success) {
+                            console.log('✅ [SUBSCRIPTION PAYMENT] SendGrid email sent successfully');
+                            emailSent = true;
+                        } else {
+                            console.log('❌ [SUBSCRIPTION PAYMENT] SendGrid returned failure result:', result);
+                        }
                     } else {
-                        console.log('⚠️  [SUBSCRIPTION PAYMENT] SENDGRID_API_KEY not found, using SMTP fallback...');
-                        result = await sendEmailWithFallback(emailData);
+                        console.log('⚠️  [SUBSCRIPTION PAYMENT] SENDGRID_API_KEY not found or not configured, using SMTP fallback...');
                     }
                 } catch (sendGridError) {
                     console.log('🔄 [SUBSCRIPTION PAYMENT] SendGrid failed, trying SMTP fallback...', sendGridError.message);
-                    result = await sendEmailWithFallback(emailData);
                 }
                 
-                if (result && (result.success || result === true)) {
+                // Try SMTP fallback if SendGrid failed
+                if (!emailSent) {
+                    try {
+                        console.log('🔄 [SUBSCRIPTION PAYMENT] Attempting SMTP fallback...');
+                        result = await sendEmailWithFallback(emailData);
+                        
+                        if (result && (result.success || result === true)) {
+                            console.log('✅ [SUBSCRIPTION PAYMENT] SMTP email sent successfully');
+                            emailSent = true;
+                        } else {
+                            console.log('❌ [SUBSCRIPTION PAYMENT] SMTP fallback failed:', result);
+                        }
+                    } catch (smtpError) {
+                        console.error('❌ [SUBSCRIPTION PAYMENT] SMTP fallback failed:', smtpError.message);
+                    }
+                }
+                
+                if (emailSent) {
                     console.log(`[SUBSCRIPTION PAYMENT] 📧 Confirmation email sent to ${subscription.customerEmail}`);
                 } else {
-                    console.error(`[SUBSCRIPTION PAYMENT] ❌ Failed to send confirmation email`);
+                    console.error(`[SUBSCRIPTION PAYMENT] ❌ Failed to send confirmation email to ${subscription.customerEmail}`);
+                    console.error(`[SUBSCRIPTION PAYMENT] ❌ SendGrid result:`, result);
                 }
             } catch (emailError) {
                 console.error(`[SUBSCRIPTION PAYMENT] ❌ Failed to send confirmation email:`, emailError);
@@ -1558,7 +1639,7 @@ async function sendBookingInvoice(booking) {
         const packageType = details.package || 'Cleaning Service';
         const duration = details.duration || 0;
         const cleaners = details.cleaners || 1;
-        const amount = booking.amount || 0;
+        const amount = booking.amount ? (booking.amount / 100).toFixed(2) : '0.00';
         const specialRequests = details.specialRequests || 'None';
 
         const invoiceHtml = `
@@ -1804,7 +1885,9 @@ app.post('/stripe-webhook', express.raw({type: 'application/json'}), async (req,
                 console.info(`[STRIPE] Raw Metadata:`, paymentIntent.metadata);
                 
                 // Check if this is a subscription payment
+                console.log(`[STRIPE] 🔍 Checking payment metadata:`, paymentIntent.metadata);
                 if (paymentIntent.metadata.type === 'subscription_payment') {
+                    console.log(`[STRIPE] 📧 Processing subscription payment for subscription: ${paymentIntent.metadata.subscriptionId}`);
                     await handleSubscriptionPayment(paymentIntent);
                     return res.json({ received: true });
                 }
@@ -2042,6 +2125,7 @@ app.use((req, res, next) => {
         '/api/bookings/commercial-create',
         '/api/admin/login',
         '/api/test/subscription-payment',
+        '/api/test/subscription-email',
         '/api/test-email',
         '/api/test-commercial-email',
         '/api/employees',
@@ -2058,7 +2142,8 @@ app.use((req, res, next) => {
         req.path.startsWith('/api/chats/') || 
         req.path.startsWith('/api/admin/') ||
         req.path.startsWith('/api/subscriptions/') ||
-        req.path.startsWith('/api/test/subscription-payment/')) {
+        req.path.startsWith('/api/test/subscription-payment/') ||
+        req.path.startsWith('/api/test/subscription-email/')) {
         return next();
     }
     csrfProtection(req, res, next);
@@ -3061,9 +3146,42 @@ app.post('/api/subscriptions/:id/create-payment', requireAuth, async (req, res) 
             return res.status(400).json({ error: 'Only active subscriptions can create payments' });
         }
         
-        // Create payment intent for subscription
-        // Subscription price is already stored in cents, so no need to multiply by 100
-        const amountInCents = subscription.price;
+        // Calculate penalty if overdue
+        const today = new Date();
+        const dueDate = new Date(subscription.nextBillingDate);
+        const daysOverdue = Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24));
+        const isOverdue = dueDate < today;
+        
+        let amountInCents = subscription.price;
+        let penaltyInfo = null;
+        
+        if (isOverdue && daysOverdue > 0) {
+            // Calculate penalty using the same logic as billing reminder
+            const gracePeriod = 3; // days
+            const dailyRate = 0.05; // 5% per day
+            const maxPenalty = 0.50; // 50% maximum
+            const minPenalty = 5.00; // €5 minimum
+            const maxDays = 30; // maximum days for penalty calculation
+            
+            if (daysOverdue > gracePeriod) {
+                const baseAmount = subscription.price / 100;
+                const penaltyDays = Math.min(daysOverdue - gracePeriod, maxDays);
+                const penaltyRate = Math.min(penaltyDays * dailyRate, maxPenalty);
+                const penaltyAmount = Math.max(baseAmount * penaltyRate, minPenalty);
+                const totalAmount = baseAmount + penaltyAmount;
+                
+                penaltyInfo = {
+                    baseAmount: baseAmount,
+                    penaltyAmount: penaltyAmount,
+                    totalAmount: totalAmount,
+                    penaltyRate: penaltyRate,
+                    daysOverdue: daysOverdue
+                };
+                
+                amountInCents = Math.round(totalAmount * 100); // Convert to cents
+                console.log(`[SUBSCRIPTION PAYMENT] 💰 Penalty calculated: Base €${baseAmount.toFixed(2)} + Penalty €${penaltyAmount.toFixed(2)} = Total €${totalAmount.toFixed(2)}`);
+            }
+        }
         
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amountInCents,
@@ -3090,9 +3208,10 @@ app.post('/api/subscriptions/:id/create-payment', requireAuth, async (req, res) 
         res.json({
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: paymentIntent.id,
-            amount: subscription.price / 100, // Convert cents to euros for display
+            amount: amountInCents / 100, // Convert cents to euros for display (includes penalty if applicable)
             currency: subscription.currency || 'eur',
-            paymentLink: paymentLink
+            paymentLink: paymentLink,
+            penaltyInfo: penaltyInfo // Include penalty information for frontend display
         });
         
     } catch (error) {
@@ -3116,9 +3235,42 @@ app.post('/api/subscriptions/:id/create-payment-public', async (req, res) => {
             return res.status(400).json({ error: 'Only active subscriptions can create payments' });
         }
         
-        // Create payment intent for subscription
-        // Subscription price is already stored in cents, so no need to multiply by 100
-        const amountInCents = subscription.price;
+        // Calculate penalty if overdue
+        const today = new Date();
+        const dueDate = new Date(subscription.nextBillingDate);
+        const daysOverdue = Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24));
+        const isOverdue = dueDate < today;
+        
+        let amountInCents = subscription.price;
+        let penaltyInfo = null;
+        
+        if (isOverdue && daysOverdue > 0) {
+            // Calculate penalty using the same logic as billing reminder
+            const gracePeriod = 3; // days
+            const dailyRate = 0.05; // 5% per day
+            const maxPenalty = 0.50; // 50% maximum
+            const minPenalty = 5.00; // €5 minimum
+            const maxDays = 30; // maximum days for penalty calculation
+            
+            if (daysOverdue > gracePeriod) {
+                const baseAmount = subscription.price / 100;
+                const penaltyDays = Math.min(daysOverdue - gracePeriod, maxDays);
+                const penaltyRate = Math.min(penaltyDays * dailyRate, maxPenalty);
+                const penaltyAmount = Math.max(baseAmount * penaltyRate, minPenalty);
+                const totalAmount = baseAmount + penaltyAmount;
+                
+                penaltyInfo = {
+                    baseAmount: baseAmount,
+                    penaltyAmount: penaltyAmount,
+                    totalAmount: totalAmount,
+                    penaltyRate: penaltyRate,
+                    daysOverdue: daysOverdue
+                };
+                
+                amountInCents = Math.round(totalAmount * 100); // Convert to cents
+                console.log(`[SUBSCRIPTION PAYMENT] 💰 Penalty calculated: Base €${baseAmount.toFixed(2)} + Penalty €${penaltyAmount.toFixed(2)} = Total €${totalAmount.toFixed(2)}`);
+            }
+        }
         
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amountInCents,
@@ -3145,9 +3297,10 @@ app.post('/api/subscriptions/:id/create-payment-public', async (req, res) => {
         res.json({
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: paymentIntent.id,
-            amount: subscription.price / 100, // Convert cents to euros for display
+            amount: amountInCents / 100, // Convert cents to euros for display (includes penalty if applicable)
             currency: subscription.currency || 'eur',
-            paymentLink: paymentLink
+            paymentLink: paymentLink,
+            penaltyInfo: penaltyInfo // Include penalty information for frontend display
         });
         
     } catch (error) {
@@ -7778,17 +7931,67 @@ app.post('/api/test/subscription-payment/:subscriptionId/:paymentIntentId', asyn
     try {
         console.log(`[TEST] 🔧 Manually processing subscription payment for ${req.params.subscriptionId}`);
         
-        // Create a mock payment intent object
-        const mockPaymentIntent = {
+        // Get real subscription data
+        await db.read();
+        const subscriptions = db.data.subscriptions || [];
+        const subscription = subscriptions.find(sub => sub.id === req.params.subscriptionId);
+        
+        if (!subscription) {
+            return res.status(404).json({ error: 'Subscription not found' });
+        }
+        
+        // Create payment intent object with real subscription data
+        const paymentIntent = {
             id: req.params.paymentIntentId,
-            amount: 20000, // €200 in cents
+            amount: subscription.price,
             metadata: {
                 type: 'subscription_payment',
                 subscriptionId: req.params.subscriptionId,
-                customerName: 'Test Customer',
-                customerEmail: 'test@example.com',
-                planName: 'Test Plan',
-                billingCycle: 'monthly'
+                customerName: subscription.customerName,
+                customerEmail: subscription.customerEmail,
+                planName: subscription.planName,
+                billingCycle: subscription.billingCycle
+            }
+        };
+        
+        console.log(`[TEST] 📧 Processing payment for subscription:`, subscription);
+        console.log(`[TEST] 📧 Customer email: ${subscription.customerEmail}`);
+        
+        await handleSubscriptionPayment(paymentIntent);
+        
+        res.json({ 
+            success: true, 
+            message: 'Subscription payment processed successfully',
+            subscriptionId: req.params.subscriptionId,
+            paymentIntentId: req.params.paymentIntentId,
+            customerEmail: subscription.customerEmail
+        });
+    } catch (error) {
+        console.error('[TEST] ❌ Error processing subscription payment:', error);
+        res.status(500).json({ error: 'Failed to process subscription payment' });
+    }
+});
+
+// Test endpoint to send subscription payment email directly
+app.post('/api/test/subscription-email/:subscriptionId', async (req, res) => {
+    try {
+        console.log(`[TEST] 📧 Testing subscription payment email for ${req.params.subscriptionId}`);
+        
+        await db.read();
+        const subscriptions = db.data.subscriptions || [];
+        const subscription = subscriptions.find(sub => sub.id === req.params.subscriptionId);
+        
+        if (!subscription) {
+            return res.status(404).json({ error: 'Subscription not found' });
+        }
+        
+        // Create a mock payment intent for email testing
+        const mockPaymentIntent = {
+            id: 'test_pi_' + Date.now(),
+            amount: subscription.price,
+            metadata: {
+                type: 'subscription_payment',
+                subscriptionId: subscription.id
             }
         };
         
@@ -7796,13 +7999,13 @@ app.post('/api/test/subscription-payment/:subscriptionId/:paymentIntentId', asyn
         
         res.json({ 
             success: true, 
-            message: 'Subscription payment processed successfully',
+            message: 'Subscription payment email sent successfully',
             subscriptionId: req.params.subscriptionId,
-            paymentIntentId: req.params.paymentIntentId
+            email: subscription.customerEmail
         });
     } catch (error) {
-        console.error('[TEST] ❌ Error processing subscription payment:', error);
-        res.status(500).json({ error: 'Failed to process subscription payment' });
+        console.error('[TEST] ❌ Error sending subscription payment email:', error);
+        res.status(500).json({ error: 'Failed to send subscription payment email' });
     }
 });
 

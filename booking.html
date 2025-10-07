@@ -282,19 +282,135 @@
         .field label { position: absolute; left: 2.75rem; top: 1rem; transition: all .2s ease-in-out; pointer-events: none; color: var(--gray-400); }
         .field select ~ label { left: 1rem; }
 
-        .form-input.error { border-color: #ef4444 !important; }
-        .error-message { color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; display: none; }
+        .form-input.error { 
+            border-color: #ef4444 !important; 
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+            animation: shake 0.5s ease-in-out;
+        }
+        .form-input.valid {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+        }
+        .error-message { 
+            color: #ef4444; 
+            font-size: 0.875rem; 
+            margin-top: 0.25rem; 
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+        .success-message {
+            color: #10b981;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
         
-        /* Wizard Steps */
-        .wizard-steps { counter-reset: step; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Real-time validation indicators */
+        .field {
+            position: relative;
+        }
+        .field .validation-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .field .validation-icon.show {
+            opacity: 1;
+        }
+        .field .validation-icon.error {
+            color: #ef4444;
+        }
+        .field .validation-icon.success {
+            color: #10b981;
+        }
+        
+        /* Mobile optimization for forms */
+        @media (max-width: 768px) {
+            .wizard-steps {
+                flex-direction: column;
+                gap: 8px;
+                padding: 0.5rem;
+            }
+            .wizard-step {
+                width: 100%;
+                padding: 8px 12px;
+                font-size: 0.875rem;
+            }
+            .form-input {
+                font-size: 16px; /* Prevents zoom on iOS */
+                padding: 12px 16px;
+                min-height: 44px; /* Touch-friendly */
+            }
+            .field .form-input {
+                padding-left: 2.5rem;
+            }
+            .field .field-icon {
+                left: 0.75rem;
+                top: 0.75rem;
+            }
+            .field label {
+                left: 2.5rem;
+                top: 0.75rem;
+            }
+        }
+        
+        /* Enhanced Wizard Steps with Progress Indicators */
+        .wizard-steps { 
+            counter-reset: step; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
         .wizard-step {
             display: flex;
             align-items: center;
             opacity: 0.6;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            padding: 8px 16px;
+            padding: 12px 20px;
             border-radius: 12px;
             position: relative;
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
+            background: transparent;
+            border: 2px solid transparent;
+        }
+        .wizard-step:hover {
+            opacity: 0.8;
+            transform: translateY(-2px);
+        }
+        .wizard-step.active {
+            opacity: 1;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+            transform: translateY(-2px);
+        }
+        .wizard-step.completed {
+            opacity: 1;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
         }
         .wizard-step::before {
             counter-increment: step;
@@ -978,19 +1094,28 @@
                                 <i class="field-icon fas fa-user"></i>
                                 <input id="customer-name" type="text" class="form-input w-full bg-white rounded-lg px-4 pt-6 pb-2 border-gray-300" placeholder=" " required>
                                 <label for="customer-name" data-translate="name-label">Full name</label>
+                                <i class="validation-icon fas fa-check-circle success"></i>
+                                <i class="validation-icon fas fa-exclamation-circle error"></i>
                                 <div class="error-message">Name is required.</div>
+                                <div class="success-message">Name looks good!</div>
                             </div>
                             <div class="field">
                                 <i class="field-icon fas fa-envelope"></i>
                                 <input id="customer-email" type="email" class="form-input w-full bg-white rounded-lg px-4 pt-6 pb-2 border-gray-300" placeholder=" " required>
                                 <label for="customer-email" data-translate="email-label">Email address</label>
+                                <i class="validation-icon fas fa-check-circle success"></i>
+                                <i class="validation-icon fas fa-exclamation-circle error"></i>
                                 <div class="error-message">A valid email is required.</div>
+                                <div class="success-message">Email looks good!</div>
                             </div>
                              <div class="field">
                                 <i class="field-icon fas fa-phone"></i>
                                 <input id="customer-phone" type="tel" class="form-input w-full bg-white rounded-lg px-4 pt-6 pb-2 border-gray-300" placeholder=" " required>
                                 <label for="customer-phone" data-translate="phone-label">Phone number</label>
+                                <i class="validation-icon fas fa-check-circle success"></i>
+                                <i class="validation-icon fas fa-exclamation-circle error"></i>
                                 <div class="error-message">Phone number is required.</div>
+                                <div class="success-message">Phone number looks good!</div>
                             </div>
                             <div class="field sm:col-span-2">
                                 <i class="field-icon fas fa-map-marker-alt"></i>
@@ -1061,7 +1186,26 @@
                         <h3 class="text-2xl font-poppins font-bold text-slate-800 mt-4">Booking Confirmed!</h3>
                         <p class="text-slate-500 mt-2 max-w-md mx-auto">Thank you, <span id="confirm-name" class="font-semibold"></span>! We've received your request and a confirmation email has been sent to <span id="confirm-email" class="font-semibold"></span>.</p>
                         <p class="text-sm text-slate-500 mt-1">Our team will be at your address on <span id="confirm-date" class="font-semibold"></span>.</p>
-                        <button id="book-another" class="mt-8 btn btn-primary">Book Another Cleaning</button>
+                        
+                        <!-- Progress Management -->
+                        <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <p class="text-sm text-green-700 mb-3">
+                                <i class="fas fa-check-circle mr-2"></i>
+                                Your booking progress has been automatically saved and cleared.
+                            </p>
+                            <button id="clear-progress" class="text-xs text-green-600 hover:text-green-800 underline">
+                                Clear all saved data
+                            </button>
+                        </div>
+                        
+                        <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                            <button id="book-another" class="btn btn-primary">
+                                <i class="fas fa-plus mr-2"></i>Book Another Cleaning
+                            </button>
+                            <button id="view-booking" class="btn btn-secondary">
+                                <i class="fas fa-eye mr-2"></i>View Booking Details
+                            </button>
+                        </div>
                     </section>
                 </div>
             </div>
@@ -1491,18 +1635,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- INITIALIZATION ---
     function init() {
         DOM.year.textContent = new Date().getFullYear();
+        
+        // Try to load saved progress first
+        const hasProgress = loadProgress();
+        
         renderPackages();
         setupEventListeners();
         renderCalendar();
         renderTimeSlots();
         updateUI();
-        showStep(0);
-        selectPackage(document.querySelector('.package'));
+        
+        // Setup real-time validation
+        setupRealTimeValidation();
+        
+        // Show appropriate step (saved progress or step 0)
+        showStep(hasProgress ? state.activeStep : 0);
+        
+        // If we loaded progress, populate the form fields
+        if (hasProgress) {
+            populateFormFields();
+        } else {
+            selectPackage(document.querySelector('.package'));
+        }
+        
         checkStripeStatus();
         setupLanguageSwitcher();
         
         // Set initial booking type selection
         document.querySelector('.booking-type-card[data-booking-type="one-time"]').classList.add('selected');
+        
+        // Show progress restoration message if applicable
+        if (hasProgress) {
+            showMessage('Your previous booking progress has been restored. You can continue where you left off.', 'info');
+        }
+    }
+    
+    // --- POPULATE FORM FIELDS FROM SAVED STATE ---
+    function populateFormFields() {
+        const fields = [
+            'customer-name', 'customer-email', 'customer-phone', 
+            'customer-address', 'postal-code', 'city', 'property-size'
+        ];
+        
+        fields.forEach(fieldId => {
+            const input = document.getElementById(fieldId);
+            if (input && state[fieldId.replace('customer-', '').replace('-', '')]) {
+                input.value = state[fieldId.replace('customer-', '').replace('-', '')];
+                // Trigger validation to update UI
+                validateField(input);
+            }
+        });
+        
+        // Update other form elements
+        if (state.salutation) {
+            const salutationSelect = document.getElementById('salutation');
+            if (salutationSelect) salutationSelect.value = state.salutation;
+        }
     }
 
     // --- RENDER FUNCTIONS ---
@@ -1632,6 +1820,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log('🔍 Payment button clicked!');
                 console.log('🔍 Button disabled state:', submitBtn.disabled);
                 console.log('🔍 Button text:', submitBtn.textContent);
+            });
+        }
+        
+        // Add event listeners for success step buttons
+        const clearProgressBtn = document.getElementById('clear-progress');
+        if (clearProgressBtn) {
+            clearProgressBtn.addEventListener('click', () => {
+                clearProgress();
+                showMessage('All saved data has been cleared.', 'success');
+            });
+        }
+        
+        const viewBookingBtn = document.getElementById('view-booking');
+        if (viewBookingBtn) {
+            viewBookingBtn.addEventListener('click', () => {
+                // Show booking details in a modal or redirect to booking management
+                showBookingDetails();
             });
         }
 
@@ -2022,6 +2227,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (i === index) ws.classList.add('active');
         });
         
+        // Clear progress when reaching success step
+        if (index === 4) { // Success step
+            clearProgress();
+            console.log('🎉 Booking completed - progress cleared');
+        }
+        
         if(index === 3){ // Payment step
             console.log('💳 Showing payment step, package:', state.package);
             const packages = CONFIG.packages[state.bookingType];
@@ -2117,7 +2328,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    // --- VALIDATION ---
+    // --- ENHANCED VALIDATION WITH REAL-TIME FEEDBACK ---
     function validateStep(stepIndex) {
         let isValid = true;
         document.querySelectorAll('.error-message, .form-input.error').forEach(el => { el.style.display = 'none'; el.classList.remove('error'); });
@@ -2140,18 +2351,327 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!isValid) errorEl.classList.remove('hidden');
         }
         
-        if (stepIndex === 2) { // Customer details step
-            const fields = ['customer-name', 'customer-email', 'customer-address', 'customer-phone', 'city', 'postal-code'];
-            fields.forEach(id => {
-                const input = document.getElementById(id);
-                if (!input.value.trim() || (input.type === 'email' && !/^\S+@\S+\.\S+$/.test(input.value))) {
+        // Enhanced validation for step 3 (customer details)
+        if (stepIndex === 2) {
+            const requiredFields = [
+                { id: 'customer-name', message: 'Name is required.' },
+                { id: 'customer-email', message: 'A valid email is required.' },
+                { id: 'customer-phone', message: 'Phone number is required.' },
+                { id: 'customer-address', message: 'Address is required.' },
+                { id: 'postal-code', message: 'Postal code is required.' },
+                { id: 'city', message: 'City is required.' }
+            ];
+            
+            requiredFields.forEach(field => {
+                const input = document.getElementById(field.id);
+                const fieldContainer = input.closest('.field');
+                const errorMsg = fieldContainer.querySelector('.error-message');
+                const successMsg = fieldContainer.querySelector('.success-message');
+                const errorIcon = fieldContainer.querySelector('.validation-icon.error');
+                const successIcon = fieldContainer.querySelector('.validation-icon.success');
+                
+                if (!input.value.trim()) {
                     isValid = false;
                     input.classList.add('error');
-                    const errorMsg = input.closest('.field').querySelector('.error-message');
-                    if(errorMsg) errorMsg.style.display = 'block';
+                    input.classList.remove('valid');
+                    if (errorMsg) errorMsg.style.display = 'block';
+                    if (successMsg) successMsg.style.display = 'none';
+                    if (errorIcon) errorIcon.classList.add('show');
+                    if (successIcon) successIcon.classList.remove('show');
+                } else {
+                    input.classList.remove('error');
+                    input.classList.add('valid');
+                    if (errorMsg) errorMsg.style.display = 'none';
+                    if (successMsg) successMsg.style.display = 'block';
+                    if (errorIcon) errorIcon.classList.remove('show');
+                    if (successIcon) successIcon.classList.add('show');
                 }
             });
         }
+        
+        // Save progress after each step
+        saveProgress();
+        
+        return isValid;
+    }
+    
+    // --- SAVE PROGRESS FUNCTIONALITY ---
+    function saveProgress() {
+        try {
+            const progressData = {
+                activeStep: state.activeStep,
+                bookingType: state.bookingType,
+                package: state.package,
+                date: state.date,
+                time: state.time,
+                propertySize: state.propertySize,
+                customerName: state.customerName,
+                customerEmail: state.customerEmail,
+                customerPhone: state.customerPhone,
+                customerAddress: state.customerAddress,
+                postalCode: state.postalCode,
+                city: state.city,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('bookingProgress', JSON.stringify(progressData));
+            console.log('💾 Progress saved to localStorage');
+        } catch (error) {
+            console.warn('⚠️ Could not save progress:', error);
+        }
+    }
+    
+    function loadProgress() {
+        try {
+            const savedProgress = localStorage.getItem('bookingProgress');
+            if (savedProgress) {
+                const progressData = JSON.parse(savedProgress);
+                // Only restore if saved within last 24 hours
+                if (Date.now() - progressData.timestamp < 24 * 60 * 60 * 1000) {
+                    Object.assign(state, progressData);
+                    console.log('📂 Progress loaded from localStorage');
+                    return true;
+                } else {
+                    localStorage.removeItem('bookingProgress');
+                    console.log('🗑️ Old progress data cleared');
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not load progress:', error);
+            localStorage.removeItem('bookingProgress');
+        }
+        return false;
+    }
+    
+    function clearProgress() {
+        localStorage.removeItem('bookingProgress');
+        console.log('🗑️ Progress cleared');
+    }
+    
+    // --- SHOW BOOKING DETAILS ---
+    function showBookingDetails() {
+        // Create a modal to show booking details
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        `;
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        `;
+        
+        // Get booking details from state
+        const bookingDetails = {
+            name: state.customerName || 'N/A',
+            email: state.customerEmail || 'N/A',
+            phone: state.customerPhone || 'N/A',
+            address: state.customerAddress || 'N/A',
+            city: state.city || 'N/A',
+            postalCode: state.postalCode || 'N/A',
+            date: state.date || 'N/A',
+            time: state.time || 'N/A',
+            package: state.package || 'N/A',
+            propertySize: state.propertySize || 'N/A',
+            bookingType: state.bookingType || 'N/A'
+        };
+        
+        modalContent.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #1f2937; font-size: 20px;">Booking Details</h3>
+                <button id="close-modal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            </div>
+            
+            <div style="space-y: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <label style="font-weight: 600; color: #374151; font-size: 14px;">Customer Name</label>
+                        <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.name}</p>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; color: #374151; font-size: 14px;">Email</label>
+                        <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.email}</p>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; color: #374151; font-size: 14px;">Phone</label>
+                        <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.phone}</p>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; color: #374151; font-size: 14px;">Booking Type</label>
+                        <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.bookingType}</p>
+                    </div>
+                </div>
+                
+                <div>
+                    <label style="font-weight: 600; color: #374151; font-size: 14px;">Address</label>
+                    <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.address}, ${bookingDetails.postalCode} ${bookingDetails.city}</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <label style="font-weight: 600; color: #374151; font-size: 14px;">Date</label>
+                        <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.date}</p>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; color: #374151; font-size: 14px;">Time</label>
+                        <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.time}</p>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <label style="font-weight: 600; color: #374151; font-size: 14px;">Package</label>
+                        <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.package}</p>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; color: #374151; font-size: 14px;">Property Size</label>
+                        <p style="margin: 4px 0 0 0; color: #6b7280;">${bookingDetails.propertySize} m²</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                    <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                    A confirmation email has been sent to your email address with all booking details.
+                </p>
+            </div>
+        `;
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Add close functionality
+        const closeBtn = modal.querySelector('#close-modal');
+        closeBtn.addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+        
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+            }
+        });
+        
+        // Close on escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                document.body.removeChild(modal);
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+    }
+    
+    // --- REAL-TIME VALIDATION ---
+    function setupRealTimeValidation() {
+        const inputs = document.querySelectorAll('.form-input');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                validateField(this);
+            });
+            
+            input.addEventListener('blur', function() {
+                validateField(this);
+            });
+        });
+    }
+    
+    function validateField(input) {
+        const fieldContainer = input.closest('.field');
+        const errorMsg = fieldContainer.querySelector('.error-message');
+        const successMsg = fieldContainer.querySelector('.success-message');
+        const errorIcon = fieldContainer.querySelector('.validation-icon.error');
+        const successIcon = fieldContainer.querySelector('.validation-icon.success');
+        
+        let isValid = true;
+        let message = '';
+        
+        // Field-specific validation
+        switch(input.id) {
+            case 'customer-name':
+                isValid = input.value.trim().length >= 2;
+                message = isValid ? 'Name looks good!' : 'Name must be at least 2 characters.';
+                break;
+            case 'customer-email':
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                isValid = emailRegex.test(input.value);
+                message = isValid ? 'Email looks good!' : 'Please enter a valid email address.';
+                break;
+            case 'customer-phone':
+                const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,}$/;
+                isValid = phoneRegex.test(input.value);
+                message = isValid ? 'Phone number looks good!' : 'Please enter a valid phone number.';
+                break;
+            case 'customer-address':
+                isValid = input.value.trim().length >= 5;
+                message = isValid ? 'Address looks good!' : 'Please enter a complete address.';
+                break;
+            case 'postal-code':
+                isValid = input.value.trim().length >= 4;
+                message = isValid ? 'Postal code looks good!' : 'Please enter a valid postal code.';
+                break;
+            case 'city':
+                isValid = input.value.trim().length >= 2;
+                message = isValid ? 'City looks good!' : 'Please enter a valid city name.';
+                break;
+            case 'property-size':
+                const size = parseInt(input.value);
+                isValid = size > 0 && size <= 1000;
+                message = isValid ? 'Size looks good!' : 'Please enter a valid property size (1-1000 m²).';
+                break;
+        }
+        
+        // Update UI
+        if (isValid) {
+            input.classList.remove('error');
+            input.classList.add('valid');
+            if (errorMsg) errorMsg.style.display = 'none';
+            if (successMsg) {
+                successMsg.textContent = message;
+                successMsg.style.display = 'block';
+            }
+            if (errorIcon) errorIcon.classList.remove('show');
+            if (successIcon) successIcon.classList.add('show');
+        } else {
+            input.classList.remove('valid');
+            input.classList.add('error');
+            if (errorMsg) {
+                errorMsg.textContent = message;
+                errorMsg.style.display = 'block';
+            }
+            if (successMsg) successMsg.style.display = 'none';
+            if (errorIcon) errorIcon.classList.add('show');
+            if (successIcon) successIcon.classList.remove('show');
+        }
+        
+        // Update state
+        if (input.id.startsWith('customer-')) {
+            const fieldName = input.id.replace('customer-', '');
+            state[fieldName] = input.value;
+        } else if (input.id === 'property-size') {
+            state.propertySize = input.value;
+        }
+        
+        // Auto-save progress
+        saveProgress();
+        
         return isValid;
     }
 

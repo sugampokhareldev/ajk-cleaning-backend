@@ -1,4 +1,5 @@
 const { sendEmailWithFallback } = require('./emailFallback');
+const sendGridAdvanced = require('./sendgridAdvanced');
 const { Low } = require('lowdb');
 const { JSONFile } = require('lowdb/node');
 const path = require('path');
@@ -80,10 +81,8 @@ class BillingReminderService {
         try {
             console.log('🔍 Checking for subscriptions due for payment...');
             
-            // Initialize database if not already done
-            if (!db.data) {
-                await db.read();
-            }
+            // Always read fresh data from database
+            await db.read();
             const subscriptions = db.data.subscriptions || [];
             
             const activeSubscriptions = subscriptions.filter(sub => 
@@ -344,8 +343,54 @@ class BillingReminderService {
                 `
             };
 
-            await sendEmailWithFallback(emailData);
-            console.log(`✅ Payment reminder sent to ${subscription.customerEmail} for subscription ${subscription.id}`);
+            // Try SendGrid first, then fallback to SMTP
+            let emailSent = false;
+            let result;
+            
+            try {
+                if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'your_sendgrid_api_key_here') {
+                    console.log('🚀 [BILLING REMINDER] Attempting to send email via SendGrid...');
+                    console.log(`📧 [BILLING REMINDER] Sending to: ${subscription.customerEmail}`);
+                    console.log(`📧 [BILLING REMINDER] Subject: ${emailData.subject}`);
+                    
+                    result = await sendGridAdvanced.sendEmail(subscription.customerEmail, emailData.subject, emailData.html);
+                    
+                    if (result && result.success) {
+                        console.log('✅ [BILLING REMINDER] SendGrid email sent successfully');
+                        emailSent = true;
+                    } else {
+                        console.log('❌ [BILLING REMINDER] SendGrid returned failure result:', result);
+                    }
+                } else {
+                    console.log('⚠️  [BILLING REMINDER] SENDGRID_API_KEY not found or not configured, using SMTP fallback...');
+                }
+            } catch (sendGridError) {
+                console.log('🔄 [BILLING REMINDER] SendGrid failed, trying SMTP fallback...', sendGridError.message);
+            }
+            
+            // Try SMTP fallback if SendGrid failed
+            if (!emailSent) {
+                try {
+                    console.log('🔄 [BILLING REMINDER] Attempting SMTP fallback...');
+                    result = await sendEmailWithFallback(emailData);
+                    
+                    if (result && (result.success || result === true)) {
+                        console.log('✅ [BILLING REMINDER] SMTP email sent successfully');
+                        emailSent = true;
+                    } else {
+                        console.log('❌ [BILLING REMINDER] SMTP fallback failed:', result);
+                    }
+                } catch (smtpError) {
+                    console.error('❌ [BILLING REMINDER] SMTP fallback failed:', smtpError.message);
+                }
+            }
+            
+            if (emailSent) {
+                console.log(`✅ Payment reminder sent to ${subscription.customerEmail} for subscription ${subscription.id}`);
+            } else {
+                console.error(`❌ Failed to send payment reminder to ${subscription.customerEmail}`);
+                console.error(`❌ SendGrid result:`, result);
+            }
             
         } catch (error) {
             console.error(`❌ Failed to send payment reminder for subscription ${subscription.id}:`, error);
