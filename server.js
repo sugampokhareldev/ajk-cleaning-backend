@@ -3347,10 +3347,13 @@ app.post('/api/subscriptions/:id/send-payment-reminder', requireAuth, async (req
 
 // Edit subscription details
 app.put('/api/subscriptions/:id', requireAuth, async (req, res) => {
+    console.log(`[SUBSCRIPTION EDIT] PUT request for ID: ${req.params.id}`);
+    console.log(`[SUBSCRIPTION EDIT] Request body:`, req.body);
     try {
         await db.read();
         const subscriptions = db.data.subscriptions || [];
         const subscriptionIndex = subscriptions.findIndex(sub => sub.id === req.params.id);
+        console.log(`[SUBSCRIPTION EDIT] Found subscription at index: ${subscriptionIndex}`);
         
         if (subscriptionIndex === -1) {
             return res.status(404).json({ error: 'Subscription not found' });
