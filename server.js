@@ -1,3 +1,4 @@
+// URGENT FIX VERSION 2.0 - Payment Link Fix
 // Load environment variables
 require('dotenv').config();
 
@@ -3166,9 +3167,11 @@ app.post('/api/subscriptions/:id/send-payment-reminder', requireAuth, async (req
             return res.status(404).json({ error: 'Subscription not found' });
         }
         
-        // Create payment link - FIXED: Always use correct domain
+        // Create payment link - URGENT FIX: Force correct domain
         const paymentLink = `https://ajkcleaners.de/subscription-payment/${subscription.id}`;
-        console.log(`[PAYMENT REMINDER] Generated link: ${paymentLink}`);
+        console.log(`🚨 [URGENT FIX] Payment link: ${paymentLink}`);
+        console.log(`🚨 [URGENT FIX] Subscription ID: ${subscription.id}`);
+        console.log(`🚨 [URGENT FIX] Customer: ${subscription.customerEmail}`);
         
         // Send reminder email with enhanced design
         const emailData = {
