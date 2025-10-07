@@ -1573,7 +1573,7 @@ async function createSubscriptionFromBooking(booking, bookingDetails) {
             stripeCustomerId: null, // Will be set if using Stripe subscriptions
             planId: bookingDetails.package,
             planName: getPlanName(bookingDetails.package),
-            price: bookingDetails.package === 'commercial' || bookingDetails.package === 'regular-basic' ? 0 : booking.amount,
+            price: bookingDetails.package === 'commercial' ? 0 : booking.amount,
             currency: 'eur',
             billingCycle: getServiceFrequency(bookingDetails.package),
             status: 'active',

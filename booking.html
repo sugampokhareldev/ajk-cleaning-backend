@@ -1562,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 { id: 'moveout', title: 'Move In/Out Cleaning', price: 37, desc: 'A top-to-bottom clean for an empty home.', icon: 'fas fa-box-open', hourly: true },
             ],
             'subscription': [
-                { id: 'regular-basic', title: 'Regular Basic Cleaning', price: 0, desc: 'Ongoing residential cleaning service with flexible pricing.', icon: 'fas fa-home', flexible: true },
+                { id: 'regular-basic', title: 'Regular Basic Cleaning', price: 28, desc: 'Ongoing residential cleaning service with monthly billing.', icon: 'fas fa-home', hourly: true },
                 { id: 'commercial', title: 'Commercial Cleaning', price: 0, desc: 'Tailored solutions for your office or retail space.', icon: 'fas fa-building', flexible: true },
             ]
         },
@@ -1856,7 +1856,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const packages = CONFIG.packages[state.bookingType];
             const pkg = packages.find(p => p.id === state.package);
-            const isCommercial = pkg.id === 'commercial' || pkg.flexible;
+            const isCommercial = pkg.id === 'commercial';
             
             if (isCommercial) {
                 // For commercial, submit booking data to server
