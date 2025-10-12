@@ -19,6 +19,9 @@
     "test-admin-notification": "node scripts/test-admin-notification.js",
     "test-admin-local": "node scripts/test-admin-notification-local.js",
     "test-notification-direct": "node scripts/test-notification-direct.js",
+    "cleanup-admin-users": "node scripts/cleanup-admin-users.js",
+    "diagnose-admin-auth": "node scripts/diagnose-admin-auth.js",
+    "fix-production-admin": "node scripts/fix-production-admin.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
