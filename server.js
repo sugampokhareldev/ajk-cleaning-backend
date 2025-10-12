@@ -2869,6 +2869,62 @@ app.post('/api/test-admin-notification', async (req, res) => {
     }
 });
 
+// Manual admin user cleanup endpoint
+app.post('/api/admin/cleanup-users', async (req, res) => {
+    try {
+        await db.read();
+        
+        const currentAdminEmail = process.env.ADMIN_EMAIL;
+        if (!currentAdminEmail) {
+            return res.status(400).json({ error: 'ADMIN_EMAIL not set' });
+        }
+        
+        const currentAdminUser = db.data.admin_users.find(user => user.email === currentAdminEmail);
+        const otherAdminUsers = db.data.admin_users.filter(user => user.email !== currentAdminEmail);
+        
+        if (otherAdminUsers.length === 0) {
+            return res.json({ 
+                success: true, 
+                message: 'No old admin users to clean up',
+                currentAdmin: currentAdminEmail,
+                totalUsers: db.data.admin_users.length
+            });
+        }
+        
+        console.log(`🧹 Manual cleanup: Removing ${otherAdminUsers.length} old admin users`);
+        otherAdminUsers.forEach(user => {
+            console.log(`   - Removing: ${user.email} (${user.username})`);
+        });
+        
+        // Keep only the current ADMIN_EMAIL user
+        db.data.admin_users = db.data.admin_users.filter(user => user.email === currentAdminEmail);
+        
+        // Add to history
+        if (!db.data.admin_email_history) {
+            db.data.admin_email_history = [];
+        }
+        if (!db.data.admin_email_history.includes(currentAdminEmail)) {
+            db.data.admin_email_history.push(currentAdminEmail);
+        }
+        
+        await db.write();
+        
+        console.log(`✅ Manual cleanup completed, keeping only: ${currentAdminEmail}`);
+        
+        res.json({ 
+            success: true, 
+            message: `Cleaned up ${otherAdminUsers.length} old admin users`,
+            removedUsers: otherAdminUsers.map(user => ({ email: user.email, username: user.username })),
+            currentAdmin: currentAdminEmail,
+            remainingUsers: db.data.admin_users.length
+        });
+        
+    } catch (error) {
+        console.error('❌ Manual admin cleanup failed:', error);
+        res.status(500).json({ error: 'Manual admin cleanup failed', details: error.message });
+    }
+});
+
 // Get all quote requests (for admin panel)
 app.get('/api/quotes', async (req, res) => {
     try {
@@ -6057,6 +6113,41 @@ async function initializeDB() {
             console.error('ADMIN_EMAIL=your-email@example.com');
             console.error('ADMIN_PASSWORD=your-secure-password');
             process.exit(1);
+        }
+        
+        // Check if ADMIN_EMAIL has changed and clean up old admin users
+        const currentAdminUser = db.data.admin_users.find(user => user.email === adminEmail);
+        const otherAdminUsers = db.data.admin_users.filter(user => user.email !== adminEmail);
+        
+        // Initialize admin_email_history if it doesn't exist
+        if (!db.data.admin_email_history) {
+            db.data.admin_email_history = [];
+        }
+        
+        // Check if this is a new ADMIN_EMAIL (not in history)
+        const isNewAdminEmail = !db.data.admin_email_history.includes(adminEmail);
+        
+        // If there are other admin users and this is a new ADMIN_EMAIL, clean up old users
+        if (otherAdminUsers.length > 0 && isNewAdminEmail) {
+            console.log(`🧹 ADMIN_EMAIL changed to: ${adminEmail}`);
+            console.log(`🧹 Cleaning up old admin users (${otherAdminUsers.length} found)`);
+            otherAdminUsers.forEach(user => {
+                console.log(`   - Removing: ${user.email} (${user.username})`);
+            });
+            
+            // Keep only the current ADMIN_EMAIL user
+            db.data.admin_users = db.data.admin_users.filter(user => user.email === adminEmail);
+            
+            // Add new ADMIN_EMAIL to history
+            db.data.admin_email_history.push(adminEmail);
+            
+            // Keep only the last 5 admin emails in history
+            if (db.data.admin_email_history.length > 5) {
+                db.data.admin_email_history = db.data.admin_email_history.slice(-5);
+            }
+            
+            console.log(`✅ Cleaned up old admin users, keeping only: ${adminEmail}`);
+            console.log(`📝 Admin email history: ${db.data.admin_email_history.join(', ')}`);
         }
         
         const adminUser = db.data.admin_users.find(user => user.email === adminEmail);

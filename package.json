@@ -22,6 +22,8 @@
     "cleanup-admin-users": "node scripts/cleanup-admin-users.js",
     "diagnose-admin-auth": "node scripts/diagnose-admin-auth.js",
     "fix-production-admin": "node scripts/fix-production-admin.js",
+    "manage-admin-users": "node scripts/manage-admin-users.js",
+    "test-auto-cleanup": "node scripts/test-auto-cleanup.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
