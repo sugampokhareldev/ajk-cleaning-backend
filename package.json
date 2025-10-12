@@ -15,6 +15,7 @@
     "validate-deployment": "node scripts/validate-deployment.js",
     "setup-persistent-disk": "node scripts/setup-persistent-disk.js",
     "test-persistence": "node scripts/test-data-persistence.js",
+    "diagnose-notifications": "node scripts/diagnose-admin-notifications.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
