@@ -16,6 +16,9 @@
     "setup-persistent-disk": "node scripts/setup-persistent-disk.js",
     "test-persistence": "node scripts/test-data-persistence.js",
     "diagnose-notifications": "node scripts/diagnose-admin-notifications.js",
+    "test-admin-notification": "node scripts/test-admin-notification.js",
+    "test-admin-local": "node scripts/test-admin-notification-local.js",
+    "test-notification-direct": "node scripts/test-notification-direct.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
