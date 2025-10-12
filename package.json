@@ -12,6 +12,8 @@
     "setup-gmail": "node setup-gmail-api.js",
     "restart": "taskkill /f /im node.exe 2>nul & npm start",
     "reset-admin": "node reset-admin.js",
+    "validate-deployment": "node scripts/validate-deployment.js",
+    "setup-persistent-disk": "node scripts/setup-persistent-disk.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

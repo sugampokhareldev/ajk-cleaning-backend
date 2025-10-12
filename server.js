@@ -2016,12 +2016,37 @@ if (!SESSION_SECRET) {
 }
 
 // Database setup with lowdb
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'data', 'db.json');
-const dbDir = path.dirname(dbPath);
+// For Render deployment, ensure we use a proper path that won't conflict with existing directories
+// Default to local data directory for development, persistent disk for production
+const defaultDbPath = process.env.NODE_ENV === 'production' 
+    ? '/var/data/ajk-cleaning/db.json'  // Persistent disk path for production
+    : path.join(__dirname, 'data', 'db.json');  // Local path for development
+
+let dbPath = process.env.DB_PATH || defaultDbPath;
+
+// Ensure the database path is valid and doesn't conflict with existing directories
+let dbDir = path.dirname(dbPath);
+
+// If the path points to an existing directory, use a subdirectory
+if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
+    console.warn(`Database path ${dbPath} is a directory, using subdirectory instead`);
+    const newDbPath = path.join(dbPath, 'database.json');
+    console.log(`Using database path: ${newDbPath}`);
+    // Update the dbPath for the rest of the application
+    dbPath = newDbPath;
+    dbDir = path.dirname(dbPath);
+}
 
 // Ensure the directory exists
 if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+    try {
+        fs.mkdirSync(dbDir, { recursive: true });
+        console.log(`✅ Created database directory: ${dbDir}`);
+    } catch (error) {
+        console.error(`❌ Failed to create database directory: ${dbDir}`);
+        console.error('This might be a permissions issue or the persistent disk is not mounted.');
+        throw error;
+    }
 }
 
 const adapter = new JSONFile(dbPath);
@@ -5987,18 +6012,27 @@ const validateFormSubmission = (req, res, next) => {
 
 async function initializeDB() {
     try {
+        // Ensure the database directory exists
         if (!fs.existsSync(dbDir)) {
             fs.mkdirSync(dbDir, { recursive: true });
         }
         
+        // Check if the database path is a directory (common issue on Render)
+        if (fs.existsSync(dbPath) && fs.statSync(dbPath).isDirectory()) {
+            console.error(`Database path ${dbPath} is a directory, not a file. This is likely a deployment configuration issue.`);
+            throw new Error(`Database path ${dbPath} is a directory. Please check your DB_PATH environment variable.`);
+        }
+        
         try {
             await db.read();
+            console.log('Database loaded successfully');
         } catch (error) {
             console.error('Database initialization error:', error);
-            console.log('Fresh database created successfully');
+            console.log('Creating fresh database...');
             // Initialize with empty data structure
             db.data = { submissions: [], admin_users: [], offline_messages: {}, chats: {}, analytics_events: [] };
             await db.write();
+            console.log('Fresh database created successfully');
         }
         
         if (!db.data || typeof db.data !== 'object') {
