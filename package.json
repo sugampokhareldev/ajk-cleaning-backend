@@ -24,6 +24,7 @@
     "fix-production-admin": "node scripts/fix-production-admin.js",
     "manage-admin-users": "node scripts/manage-admin-users.js",
     "test-auto-cleanup": "node scripts/test-auto-cleanup.js",
+    "admin-password-guide": "node scripts/admin-password-guide.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
