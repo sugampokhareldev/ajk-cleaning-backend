@@ -4732,6 +4732,7 @@
   const defaultOptions = {
   credentials: 'include',
   headers: {
+  'Accept': 'application/json',
   ...(csrfToken ? { 'CSRF-Token': csrfToken, 'X-CSRF-Token': csrfToken } : {}),
   ...(options.headers || {})
   }
