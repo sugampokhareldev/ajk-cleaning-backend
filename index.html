@@ -2116,12 +2116,81 @@
         
         // --- Reviews System ---
         function openReviewModal() {
-            document.getElementById('review-modal').style.display = 'block';
+            const modal = document.getElementById('review-modal');
+            // Lock background scroll (mobile-friendly) and preserve position
+            const body = document.body;
+            const root = document.documentElement;
+            const scrollY = window.scrollY || window.pageYOffset;
+            const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+
+            if (isMobile) {
+                // Simpler, more compatible locking on mobile (iOS Safari)
+                root.style.overflow = 'hidden';
+                body.style.overflow = 'hidden';
+                body.removeAttribute('data-modal-scrollY');
+                body.style.position = '';
+                body.style.top = '';
+                body.style.left = '';
+                body.style.right = '';
+                body.style.width = '';
+            } else {
+                // Desktop/tablet: use position lock for perfect scroll restoration
+                body.setAttribute('data-modal-scrollY', String(scrollY));
+                body.style.position = 'fixed';
+                body.style.top = `-${scrollY}px`;
+                body.style.left = '0';
+                body.style.right = '0';
+                body.style.width = '100%';
+                root.style.overflow = 'hidden';
+            }
+
+            // Show modal (flex centers content) and ensure its own scroll starts at top
+            modal.style.display = 'flex';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            modal.style.zIndex = '9999';
+            // Improve iOS scroll behavior
+            modal.style.webkitOverflowScrolling = 'touch';
+            modal.scrollTop = 0;
+            const modalContent = modal.querySelector('.modal-content');
+            if (modalContent) {
+                // Ensure content is brought into view on mobile
+                modalContent.setAttribute('tabindex', '-1');
+                modalContent.focus({ preventScroll: true });
+                modalContent.scrollTop = 0;
+                // In case the browser doesn't respect scrollTop on focused element
+                modalContent.scrollIntoView({ block: 'center', inline: 'nearest' });
+                // Force a reflow to fix some mobile browsers not rendering children immediately
+                void modalContent.offsetHeight;
+                modalContent.style.webkitOverflowScrolling = 'touch';
+            }
         }
 
         function closeReviewModal() {
-            document.getElementById('review-modal').style.display = 'none';
+            const modal = document.getElementById('review-modal');
+            const body = document.body;
+            const root = document.documentElement;
+            modal.style.display = 'none';
+            modal.style.alignItems = '';
+            modal.style.justifyContent = '';
+            modal.style.zIndex = '';
             document.getElementById('review-form').reset();
+
+            // Restore background scroll position
+            const storedYAttr = body.getAttribute('data-modal-scrollY');
+            const storedY = storedYAttr ? parseInt(storedYAttr, 10) : null;
+            // Always clear overflow lock
+            root.style.overflow = '';
+            body.style.overflow = '';
+            if (body.style.position === 'fixed' && storedY !== null) {
+                body.style.position = '';
+                body.style.top = '';
+                body.style.left = '';
+                body.style.right = '';
+                body.style.width = '';
+                body.removeAttribute('data-modal-scrollY');
+                window.scrollTo(0, storedY || 0);
+            }
         }
 
         async function submitReview() {
