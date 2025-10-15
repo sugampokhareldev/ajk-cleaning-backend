@@ -4713,12 +4713,26 @@
   this.optimizeMobileLayout();
   }
   async fetchWithCSRF(url, options = {}) {
-  const csrfToken = this.getCSRFToken();
+  // Ensure we have a CSRF token before sending sensitive requests
+  let csrfToken = this.getCSRFToken();
+  if (!csrfToken) {
+  try {
+  const resp = await fetch('/api/csrf-token', { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
+  if (resp.ok) {
+  const data = await resp.json();
+  csrfToken = data.csrfToken;
+  // Cache to meta and window for subsequent calls
+  window.CSRF_TOKEN = csrfToken;
+  let meta = document.querySelector('meta[name="csrf-token"]');
+  if (!meta) { meta = document.createElement('meta'); meta.name = 'csrf-token'; document.head.appendChild(meta); }
+  meta.setAttribute('content', csrfToken);
+  }
+  } catch (_) { /* ignore, server may still accept if not required */ }
+  }
   const defaultOptions = {
   credentials: 'include',
   headers: {
-  'CSRF-Token': csrfToken,
-  'X-CSRF-Token': csrfToken,
+  ...(csrfToken ? { 'CSRF-Token': csrfToken, 'X-CSRF-Token': csrfToken } : {}),
   ...(options.headers || {})
   }
   };
